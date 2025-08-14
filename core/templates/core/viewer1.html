@@ -1,0 +1,306 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>PDF Form Viewer — overlay + form</title>
+<style>
+  :root {
+    --page-max-width: 900px;
+    --label-offset: 4px;
+    --label-font: 12px/1.2 system-ui, sans-serif;
+    --field-font: 14px/1.2 system-ui, sans-serif;
+  }
+  body { margin:0; font-family:system-ui, sans-serif; background:#f4f6f8; }
+  .toolbar { position:sticky; top:0; background:#fff; padding:8px 12px; border-bottom:1px solid #eee; display:flex; gap:8px; z-index:10; }
+  .toolbar button, .toolbar select { padding:6px 12px; }
+  #viewer { position:relative; width:100%; max-width:var(--page-max-width); margin:0 auto; padding:12px; }
+  .page-wrap { position:relative; margin:16px 0; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.06); overflow:hidden; }
+  .overlay { position:absolute; inset:0; pointer-events:none; }
+  .field { position:absolute; box-sizing:border-box; border:1px solid rgba(0,0,0,.25); border-radius:6px; background:#fff; pointer-events:auto; font: var(--field-font); padding:2px 6px; }
+  .checkbox { display:flex; align-items:center; justify-content:center; }
+  .label { position:absolute; pointer-events:none; font: var(--label-font); color:#374151; background:transparent; white-space:pre-line; transform: translateY(calc(-100% - var(--label-offset))); padding:0 2px; }
+  .error { max-width:var(--page-max-width); margin:16px auto; padding:12px 16px; border:1px solid #f5c2c7; background:#f8d7da; color:#842029; border-radius:8px; white-space:pre-wrap; }
+  .hint  { max-width:var(--page-max-width); margin:16px auto; padding:12px 16px; border:1px solid #cfe2ff; background:#e7f1ff; color:#084298; border-radius:8px; white-space:pre-wrap; }
+
+  /* Режим "список-форма" */
+  #formList { max-width:var(--page-max-width); margin:16px auto; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; display:none; }
+  #formList .row { display:grid; grid-template-columns: 1fr 2fr; gap:8px; align-items:center; padding:6px 0; border-bottom:1px dashed #eee; }
+  #formList .row:last-child { border-bottom:0; }
+  #formList label { font:var(--label-font); color:#374151; }
+  #formList input[type="text"], #formList textarea { width:100%; font:var(--field-font); padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; }
+</style>
+
+<div class="toolbar">
+  <button id="saveBtn">Сохранить значения</button>
+  <select id="modeSelect">
+    <option value="overlay" selected>Режим: Оверлей (по координатам)</option>
+    <option value="form">Режим: Список-форма</option>
+  </select>
+  <a id="exportLink" class="button" href="{{ export_url }}" target="_blank" rel="noopener">Скачать PDF с правками</a>
+</div>
+
+<div id="errors" class="error" style="display:none"></div>
+<div id="hints" class="hint" style="display:none"></div>
+
+<div id="formList"></div>
+<div id="viewer"></div>
+
+<!-- одна версия PDF.js -->
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";</script>
+
+<script>
+/* === НАСТРОЙКИ ДЛЯ ПОДГОНКИ ===
+   1) GLOBAL_TWEAK: общий padding/рост для всех полей (px после масштабирования).
+   2) PAGE_TWEAKS[page]: пер-страничные сдвиги/масштабы.
+   3) FIELD_TWEAKS[name]: твик конкретного поля по имени (после масштабирования и страницы).
+*/
+const CONFIG = {
+  GLOBAL_TWEAK: { padX: 2, padY: 2 },         // увеличить поля чуть-чуть
+  PAGE_TWEAKS: {
+    // пример: 3-я страница немного сдвинута и растянута по высоте
+    // 3: { dx: 0, dy: -2, scaleX: 1.00, scaleY: 1.01 }
+  },
+  FIELD_TWEAKS: {
+    // "CharacterName": { dx: 1, dy: -1, dW: 4, dH: 2 }
+  },
+  FORM_MODE_GROUP_BY_PAGE: true  // для "список-форма": группировать по страницам
+};
+
+(async () => {
+  const pdfUrl    = "{{ pdf_url }}";
+  const fieldsUrl = "{{ fields_json_url }}";
+  const saveUrl   = "{{ save_values_url }}";
+
+  const $viewer = document.getElementById('viewer');
+  const $formList = document.getElementById('formList');
+  const $errors = document.getElementById('errors');
+  const $hints  = document.getElementById('hints');
+  const $mode   = document.getElementById('modeSelect');
+
+  const showError = (msg) => { console.error(msg); $errors.style.display=''; $errors.textContent = String(msg); };
+  const showHint  = (msg) => { console.log(msg);  $hints.style.display='';  $hints.textContent  = String(msg);  };
+
+  // загрузка JSON
+  let fieldsData;
+  try {
+    const res = await fetch(fieldsUrl);
+    if (!res.ok) return showError(`JSON с полями не найден (${res.status}): ${fieldsUrl}`);
+    fieldsData = await res.json();
+  } catch (e) { return showError(`Ошибка загрузки JSON: ${e}`); }
+
+  if (!fieldsData || !Array.isArray(fieldsData.fields)) {
+    return showError("Некорректный формат *.fields.json: нет массива 'fields'.");
+  }
+  showHint(`Найдено полей: ${fieldsData.fields.length}`);
+
+  // state: name -> value
+  const state = {};
+  fieldsData.fields.forEach(f => { if (f && f.name) state[f.name] = f.value ?? ""; });
+
+  // нормализуем номера страниц
+  fieldsData.fields.forEach(f => { if (f && typeof f.page === 'string') f.page = parseInt(f.page, 10); });
+
+  // нам нужен PDF только за размерами страниц
+  let pdf;
+  try {
+    pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+  } catch (e) {
+    return showError(`Не удалось открыть PDF: ${e}`);
+  }
+
+  // ===== РЕЖИМ "СПИСОК-ФОРМА" (без координат) =====
+  const renderFormList = () => {
+    $viewer.style.display = 'none';
+    $formList.style.display = '';
+    $formList.innerHTML = '';
+
+    const byPage = {};
+    for (const f of fieldsData.fields) {
+      if (!f || !f.name) continue;
+      const p = f.page || 1;
+      if (!byPage[p]) byPage[p] = [];
+      byPage[p].push(f);
+    }
+
+    const pages = CONFIG.FORM_MODE_GROUP_BY_PAGE ? Object.keys(byPage).map(n => +n).sort((a,b)=>a-b) : [null];
+
+    for (const p of pages) {
+      const container = document.createElement('div');
+      if (p !== null) {
+        const h = document.createElement('h3');
+        h.textContent = `Страница ${p}`;
+        container.appendChild(h);
+      }
+      const group = p === null ? fieldsData.fields : byPage[p];
+
+      for (const f of group) {
+        if (!f || !f.name) continue;
+        const row = document.createElement('div'); row.className = 'row';
+        const lab = document.createElement('label');
+        lab.textContent = f.label || f.name;
+        lab.setAttribute('for', `f_${f.name}`);
+
+        let el;
+        const type = String(f.type || '').toLowerCase();
+        if (type.includes('checkbox')) {
+          el = document.createElement('input');
+          el.type = 'checkbox';
+          el.checked = (String(state[f.name]).toLowerCase() === 'yes' || state[f.name] === true);
+        } else if ((f.value && String(f.value).includes('\n')) || (f.rect && (f.rect[3]-f.rect[1])>25)) {
+          el = document.createElement('textarea');
+          el.value = state[f.name] ?? '';
+          el.rows = 2;
+        } else {
+          el = document.createElement('input');
+          el.type = 'text';
+          el.value = state[f.name] ?? '';
+        }
+        el.id = `f_${f.name}`;
+        el.addEventListener('input', () => {
+          state[f.name] = (el.type === 'checkbox') ? (el.checked ? 'Yes' : 'Off') : el.value;
+        });
+        el.addEventListener('change', () => {
+          state[f.name] = (el.type === 'checkbox') ? (el.checked ? 'Yes' : 'Off') : el.value;
+        });
+
+        row.appendChild(lab);
+        row.appendChild(el);
+        container.appendChild(row);
+      }
+      $formList.appendChild(container);
+    }
+  };
+
+  // ===== РЕЖИМ "ОВЕРЛЕЙ" (с твиками координат) =====
+  const renderOverlay = async () => {
+    $formList.style.display = 'none';
+    $viewer.style.display = '';
+    $viewer.innerHTML = '';
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+
+      const vp1 = page.getViewport({ scale: 1.0 });
+      const desiredWidth = Math.min(900, window.innerWidth - 24);
+      const baseScale = desiredWidth / vp1.width;
+
+      // учтём пер-страничные scaleX/scaleY
+      const pt = CONFIG.PAGE_TWEAKS[pageNum] || {};
+      const scaleX = (pt.scaleX || 1.0) * baseScale;
+      const scaleY = (pt.scaleY || 1.0) * baseScale;
+
+      // viewport для корректного convertToViewportRectangle (берём базовый по ширине)
+      const viewport = page.getViewport({ scale: baseScale });
+
+      const pageWrap = document.createElement('div');
+      pageWrap.className = 'page-wrap';
+      pageWrap.style.width  = (vp1.width  * baseScale * (pt.scaleX || 1.0)) + 'px';
+      pageWrap.style.height = (vp1.height * baseScale * (pt.scaleY || 1.0)) + 'px';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      pageWrap.appendChild(overlay);
+      $viewer.appendChild(pageWrap);
+
+      const pageFields = fieldsData.fields.filter(f => f && Number(f.page) === pageNum);
+
+      for (const f of pageFields) {
+        if (!f || !f.name || !Array.isArray(f.rect) || f.rect.length !== 4) continue;
+
+        // 1) PDF rect -> viewport rect (в координатах baseScale)
+        const [vx0, vy0, vx1, vy1] = viewport.convertToViewportRectangle(f.rect.map(Number));
+        // 2) применяем пер-страничные scaleX/scaleY
+        let left   = Math.min(vx0, vx1) * (pt.scaleX || 1.0);
+        let top    = Math.min(vy0, vy1) * (pt.scaleY || 1.0);
+        let width  = Math.abs(vx1 - vx0) * (pt.scaleX || 1.0);
+        let height = Math.abs(vy1 - vy0) * (pt.scaleY || 1.0);
+
+        // 3) глобальный padding (чтобы поля чуть «расширить»)
+        const g = CONFIG.GLOBAL_TWEAK || {};
+        left   -= (g.padX || 0);
+        top    -= (g.padY || 0);
+        width  += 2 * (g.padX || 0);
+        height += 2 * (g.padY || 0);
+
+        // 4) пер-страничные dx/dy
+        left += (pt.dx || 0);
+        top  += (pt.dy || 0);
+
+        // 5) точечные твики поля
+        const ft = (CONFIG.FIELD_TWEAKS && CONFIG.FIELD_TWEAKS[f.name]) || {};
+        left   += (ft.dx || 0);
+        top    += (ft.dy || 0);
+        width  += (ft.dW || 0);
+        height += (ft.dH || 0);
+
+        // подпись
+        if (f.label && String(f.label).trim()) {
+          const lab = document.createElement('div');
+          lab.className = 'label';
+          lab.textContent = f.label;
+          lab.style.left = left + 'px';
+          lab.style.top  = top + 'px';
+          lab.style.maxWidth = Math.max(24, width) + 'px';
+          overlay.appendChild(lab);
+        }
+
+        // поле
+        let el;
+        const type = String(f.type || '').toLowerCase();
+        if (type.includes('checkbox')) {
+          el = document.createElement('input');
+          el.type = 'checkbox';
+          el.checked = (String(state[f.name]).toLowerCase() === 'yes' || state[f.name] === true);
+          el.className = 'field checkbox';
+        } else {
+          if (height > 30 || (state[f.name] && String(state[f.name]).includes('\n'))) {
+            el = document.createElement('textarea');
+            el.value = state[f.name] ?? '';
+            el.style.resize = 'none';
+          } else {
+            el = document.createElement('input');
+            el.type = 'text';
+            el.value = state[f.name] ?? '';
+          }
+          el.className = 'field';
+        }
+        el.style.left   = left + 'px';
+        el.style.top    = top + 'px';
+        el.style.width  = Math.max(24, width) + 'px';
+        el.style.height = Math.max(20, height) + 'px';
+
+        el.addEventListener('input', () => {
+          state[f.name] = (el.type === 'checkbox') ? (el.checked ? 'Yes' : 'Off') : el.value;
+        });
+        el.addEventListener('change', () => {
+          state[f.name] = (el.type === 'checkbox') ? (el.checked ? 'Yes' : 'Off') : el.value;
+        });
+        if (f.label) el.title = f.label;
+
+        overlay.appendChild(el);
+      }
+    }
+  };
+
+  // Первый рендер — оверлей
+  await renderOverlay();
+
+  // Переключатель режимов
+  $mode.addEventListener('change', async () => {
+    if ($mode.value === 'form') renderFormList();
+    else await renderOverlay();
+  });
+
+  // Сохранение
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch(saveUrl, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(state)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      alert('Сохранено.');
+    } catch (e) { showError(`Не удалось сохранить: ${e}`); }
+  });
+})();
+</script>

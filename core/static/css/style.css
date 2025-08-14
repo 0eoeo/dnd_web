@@ -1,0 +1,121 @@
+/* ===== Общие стили ===== */
+body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(180deg, #faf6f2, #f3eee9);
+    color: #3f3a36;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+/* Центрированный контейнер + равные отступы */
+.container {
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: row;
+    gap: 1.2rem; /* одинаковое расстояние между элементами */
+}
+
+/* Заголовки */
+h1, h2, h3 {
+    font-weight: 600;
+    color: #4b3f35;
+    margin: 0; /* убираем разные браузерные отступы */
+}
+
+/* ===== Кнопки ===== */
+button, .btn {
+    display: inline-flex;
+    height: 44px; /* одинаковая высота */
+    min-width: 120px;
+    padding: 0 1.2rem;
+    background: linear-gradient(135deg, #ffda8f, #fbbf77);
+    color: #5b4332;
+    border-radius: 8px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.4s ease, transform 0.15s ease, box-shadow 0.3s ease;
+    text-decoration: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+button:hover, .btn:hover {
+    background: linear-gradient(135deg, #fbbf77, #ffda8f);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+button:active, .btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ===== Поля ввода ===== */
+input, textarea, select {
+    width: 100%;
+    padding: 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #d6cfc7;
+    background: #fff;
+    font-size: 1rem;
+    margin: 0; /* убираем разнородные отступы */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: #fbbf77;
+    outline: none;
+    box-shadow: 0 0 8px rgba(251, 191, 119, 0.4);
+}
+
+/* ===== Ссылки ===== */
+a {
+    color: #d97706;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: #b45309;
+}
+
+/* ===== Карточки ===== */
+.card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ===== Сообщения ===== */
+.alert {
+    padding: 0.8rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.alert-success {
+    background-color: #e9f8ef;
+    color: #276749;
+}
+
+.alert-error {
+    background-color: #fdecea;
+    color: #b71c1c;
+}
+
+/* ===== Формы ===== */
+form {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem; /* одинаковое расстояние между полями */
+}

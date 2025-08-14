@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Форма персонажа D&D — загрузка PDF по name</title>
+    <style>
+        :root{
+          --bg:#0f1115;
+          --card:#161a22;
+          --ink:#e7ecf4;
+          --muted:#9aa4b2;
+          --accent:#8b5cf6;
+          --accent-2:#22d3ee;
+          --border:#232938;
+          --good:#10b981;
+          --bad:#ef4444;
+          --radius:16px;
+          --shadow:0 6px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+          --input:#0c0f14;
+          --input-border:#2a3244;
+        }
+        * { box-sizing: border-box; }
+        html,body{ height:100%; }
+        body{
+          margin:0; padding:0; font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+          background: radial-gradient(1200px 800px at 100% -20%, rgba(136,84,255,.15), transparent 60%),
+                      radial-gradient(900px 600px at -10% 110%, rgba(34,211,238,.10), transparent 60%),
+                      var(--bg);
+          color:var(--ink);
+        }
+        .container{ max-width:1100px; margin:0 auto; padding:24px 16px 64px; }
+        .toolbar{
+          position:sticky; top:0; z-index:10; backdrop-filter: blur(6px);
+          display:flex; gap:12px; align-items:center; padding:12px; margin:-8px -8px 16px; border-bottom:1px solid var(--border);
+          background: linear-gradient(180deg, rgba(15,17,21,.75), rgba(15,17,21,.55));
+        }
+        .toolbar h1{ font-size:18px; margin:0; font-weight:700; letter-spacing:.2px; }
+        .spacer{ flex:1 }
+        .btn{ appearance:none; border:1px solid var(--input-border); background:linear-gradient(180deg, #1a2030, #141925);
+          color:var(--ink); padding:9px 14px; border-radius:12px; cursor:pointer; box-shadow:var(--shadow);
+          transition:.2s ease; font-weight:600; }
+        .btn:hover{ transform: translateY(-1px); border-color:#36415a; }
+        .btn.primary{ background: linear-gradient(180deg, #8b5cf6, #7c3aed); border-color:#7245ff; color:white; }
+        .btn.ghost{ background:transparent; }
+
+        .cards{ display:grid; grid-template-columns: repeat(12, 1fr); gap:16px; }
+        .card{ grid-column: span 12; background:linear-gradient(180deg, #121620, #10141d); border:1px solid var(--border);
+          border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; }
+        .card h2{ margin:0 0 12px; font-size:16px; font-weight:700; color:#dfe6f7; display:flex; align-items:center; gap:8px; }
+        .grid{ display:grid; grid-template-columns: repeat(12, 1fr); gap:12px; }
+        .field{ grid-column: span 12; display:flex; flex-direction:column; gap:6px; }
+        .field.inline{ flex-direction:row; align-items:center; gap:10px; }
+        .field label{ font-size:12px; color:var(--muted); letter-spacing:.3px; }
+        .field input[type="text"], .field input[type="number"], .field textarea, .pill, select{
+          width:100%; background:var(--input); border:1px solid var(--input-border); color:var(--ink);
+          border-radius:12px; padding:10px 12px; outline:none; transition:.2s ease; min-height:38px;
+        }
+        .field textarea{ min-height:100px; resize:vertical; }
+        .pill{ display:inline-flex; align-items:center; gap:8px; }
+        .pill small{ color:var(--muted); }
+        .two{ grid-column: span 6; } .three{ grid-column: span 4; } .four{ grid-column: span 3; }
+        .stack{ grid-column: span 12; }
+        @media (max-width:900px){ .two,.three,.four,.stack{ grid-column: span 12; } }
+
+        .money{ display:flex; gap:8px; flex-wrap:wrap; }
+        .money .field{ width:120px; }
+
+        .kbd{ font:11px ui-monospace; background:#0a0d12; border:1px solid #1f2433;
+          padding:2px 6px; border-radius:6px; color:#b6c2d9; }
+
+        .tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#131a27; border:1px solid #2a3348; color:#cfe3ff; font-size:12px; }
+        .tag .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent-2); box-shadow:0 0 0 3px rgba(34, 211, 238, .15); }
+
+        /* Аватар */
+        .avatar{ display:flex; align-items:center; gap:14px; }
+        .avatar .preview{
+          width:120px; height:120px; border-radius:16px; border:1px solid var(--input-border);
+          background:#0b0f15 center/cover no-repeat; box-shadow:var(--shadow);
+        }
+        .avatar .meta{ display:flex; flex-direction:column; line-height:1.2; }
+        .avatar small{ color:var(--muted); }
+
+        /* Магия — заголовок уровня */
+        .level-head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:12px 0 8px}
+        .lvl-title{font-weight:700}
+
+        /* Строка заклинания: пилюля */
+        .spell-line{
+          display:flex;
+          gap:10px;
+          align-items:flex-start;
+          padding:8px 10px;
+          margin-bottom:8px;
+          background:linear-gradient(180deg, #0d121a, #0b0f15);
+          border:1px solid var(--input-border);
+          border-radius:12px;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.03);
+          transition:border-color .15s, box-shadow .15s, background .15s;
+        }
+        .spell-line:focus-within{
+          border-color:#3a4766;
+          box-shadow:0 0 0 2px rgba(139,92,246,.18);
+          background:linear-gradient(180deg, #101624, #0b0f15);
+        }
+
+        /* Комбобокс с поиском */
+        .combo { position: relative; flex:1; }
+        .combo .combo-input{
+          width:100%; background:transparent; border:none; outline:none; padding:0; min-height:24px;
+          color:var(--ink); font:inherit;
+        }
+        .combo .combo-list{
+          position:absolute; left:0; right:0; top:100%;
+          background:#0b0f15; border:1px solid var(--input-border);
+          border-radius:12px; margin-top:6px; max-height:240px; overflow:auto;
+          box-shadow:var(--shadow); z-index:20; display:none;
+        }
+        .combo.open .combo-list{ display:block; }
+        .combo .combo-item{ padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+        .combo .combo-item:hover{ background:#0f1624; }
+        .combo .muted{ color:var(--muted); font-size:12px; margin-left:auto; }
+
+        /* Подробнее */
+        .spell-more-btn{
+          border:1px solid var(--input-border);
+          background:linear-gradient(180deg, #1a2030, #141925);
+          border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap;
+        }
+        .spell-detail{
+          margin-top:8px; padding:10px; background:#0b0f15; border:1px solid var(--input-border);
+          border-radius:12px; display:none; width:100%;
+        }
+        .spell-detail.show{ display:block; }
+        .spell-clean { display:block; }
+    .spell-table {
+      width:100%;
+      border-collapse: collapse;
+      margin: 8px 0 12px;
+      background: linear-gradient(180deg, #0d121a, #0b0f15);
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .spell-table th, .spell-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--input-border);
+      vertical-align: top;
+    }
+    .spell-table tr:last-child th, .spell-table tr:last-child td {
+      border-bottom: none;
+    }
+    .spell-table th {
+      width: 220px;
+      color: var(--muted);
+      text-align: left;
+      font-weight: 600;
+    }
+    .spell-text p { margin: .6em 0; }
+
+    .spell-del-btn{
+      border:1px solid var(--input-border);
+      background:linear-gradient(180deg, #311a1a, #1f1414);
+      border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap;
+    }
+    .spell-del-btn:hover{ border-color:#5b2a2a; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="toolbar">
+        <h1>Форма персонажа D&D</h1>
+        <span class="tag"><span
+                class="dot"></span>SHREK GAMES</span>
+        <div class="spacer"></div>
+
+        <!-- Выбор сохранённых листов -->
+        <select id="sheetSelect" title="Выбрать сохранённый лист" style="min-width:220px">
+            <option value="">— выбрать лист —</option>
+        </select>
+
+        <!-- PDF -->
+        <label class="btn ghost" for="pdfFile">Загрузить PDF</label>
+        <input id="pdfFile" type="file" accept="application/pdf" hidden>
+
+        <!-- Сохранить -->
+        <button class="btn primary" id="btnSave" type="button">Сохранить</button>
+    </div>
+
+    <div class="cards" id="cards"></div>
+</div>
+
+<script>
+    // =============================
+    // 0) Утилиты
+    // =============================
+    function el(tag, attrs={}, ...children){
+      const n=document.createElement(tag);
+      for(const [k,v] of Object.entries(attrs)){
+        if(k==='class') n.className=v;
+        else if(k==='for') n.htmlFor=v;
+        else if(k.startsWith('on') && typeof v==='function') n.addEventListener(k.substring(2),v);
+        else n.setAttribute(k,v);
+      }
+      for(const c of children){
+        if(c==null) continue;
+        if(typeof c==='string') n.appendChild(document.createTextNode(c));
+        else n.appendChild(c);
+      }
+      return n;
+    }
+    const LONG_HINT = new Set(['ProficienciesLang','Equipment','Features and Traits','AttacksSpellcasting','Backstory','Allies','Feat+Traits','Treasure','PersonalityTraits','Ideals','Bonds','Flaws']);
+    function normalizeName(s){ return (s||'').replace(/\s+/g,' ').trim(); }
+    function normName(s){ return (s||'').replace(/\s+/g,' ').trim(); }
+
+    // CSRF cookie helper
+    function getCookie(name){
+      const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+      return m ? m.pop() : '';
+    }
+    const CSRF = ()=> getCookie('csrftoken');
+
+    // =============================
+    // 1) Конфиг групп (кроме магии)
+    // =============================
+    const FIELD_GROUPS = [
+      { id:'core', title:'Основные данные', layout:'three', fields:[
+        ['__AVATAR__','Аватар'],
+        ['CharacterName','Имя персонажа'],
+        ['ClassLevel','Класс и уровень'],
+        ['Background','Предыстория'],
+        ['PlayerName','Имя игрока'],
+        ['Race','Раса'],
+        ['Alignment','Мировоззрение'],
+        ['XP','Опыт (XP)'],
+        ['Age','Возраст'],
+        ['Height','Рост'],
+        ['Weight','Вес'],
+        ['Eyes','Глаза'],
+        ['Skin','Кожа'],
+        ['Hair','Волосы'],
+      ]},
+
+      { id:'combat', title:'Боевые параметры', layout:'three', fields:[
+        ['AC','Класс доспеха'], ['Initiative','Инициатива'], ['Speed','Скорость'],
+        ['HPMax','Максимум хитов'], ['HPCurrent','Текущие хиты'], ['HPTemp','Временные хиты'],
+        ['HDTotal','Хиты кубов (итого)'], ['HD','Хиты кубов (тип)'], ['Passive','Пассивное восприятие'],
+        ['ProfBonus','Бонус мастерства'], ['Inspiration','Вдохновение']
+      ]},
+
+      { id:'abilities', title:'Характеристики', layout:'four', fields:[
+        ['STR','СИЛ'], ['STRmod','СИЛ (значение)'],
+        ['DEX','ЛОВ'], ['DEXmod','ЛОВ (значение)'],
+        ['CON','ТЕЛ'], ['CONmod','ТЕЛ (значение)'],
+        ['INT','ИНТ'], ['INTmod','ИНТ (значение)'],
+        ['WIS','МДР'], ['WISmod','МДР (значение)'],
+        ['CHA','ХАР'], ['CHamod','ХАР (значение)']
+      ]},
+
+      { id:'saves', title:'Спасброски', layout:'three', fields:[
+        ['ST Strength','СИЛ'], ['ST Dexterity','ЛОВ'], ['ST Constitution','ТЕЛ'],
+        ['ST Intelligence','ИНТ'], ['ST Wisdom','МДР'], ['ST Charisma','ХАР']
+      ]},
+
+      { id:'skills', title:'Навыки', layout:'three', fields:[
+        ['Acrobatics','Акробатика'], ['Animal','Уход за животными'], ['Arcana','Магия'], ['Athletics','Атлетика'],
+        ['Deception','Обман'], ['History','История'], ['Insight','Проницательность'], ['Intimidation','Запугивание'],
+        ['Investigation','Анализ'], ['Medicine','Медицина'], ['Nature','Природа'], ['Perception','Восприятие'],
+        ['Performance','Выступление'], ['Persuasion','Убеждение'], ['Religion','Религия'],
+        ['SleightofHand','Ловкость рук'], ['Stealth','Скрытность'], ['Survival','Выживание']
+      ]},
+
+      { id:'attacks', title:'Атаки и оружие', layout:'three', long:['AttacksSpellcasting'], fields:[
+        ['Wpn Name','Оружие #1 — название'], ['Wpn1 AtkBonus','Бонус атаки #1'], ['Wpn1 Damage','Урон #1'],
+        ['Wpn Name 2','Оружие #2 — название'], ['Wpn2 AtkBonus','Бонус атаки #2'], ['Wpn2 Damage','Урон #2'],
+        ['Wpn Name 3','Оружие #3 — название'], ['Wpn3 AtkBonus','Бонус атаки #3'], ['Wpn3 Damage','Урон #3'],
+        ['AttacksSpellcasting','Доп. заметки по атакам/заклинаниям']
+      ]},
+
+      { id:'money', title:'Деньги', layout:'three', fields:[
+        ['CP','Медные (cp)'], ['SP','Серебряные (sp)'], ['EP','Электрум (ep)'], ['GP','Золотые (gp)'], ['PP','Платиновые (pp)']
+      ]},
+
+      { id:'personality', title:'Черты личности и особенности', layout:'two', long:['ProficienciesLang','Equipment','Features and Traits','PersonalityTraits','Ideals','Bonds','Flaws'], fields:[
+        ['PersonalityTraits','Черты характера'], ['Ideals','Идеалы'], ['Bonds','Привязанности'], ['Flaws','Изъяны'],
+        ['ProficienciesLang','Владения и языки'], ['Equipment','Снаряжение'], ['Features and Traits','Особенности и черты']
+      ]},
+    ];
+
+    // =============================
+    // 2) Рендер НЕ магии
+    // =============================
+    const cards = document.getElementById('cards');
+
+    function makeInput(name, label, isLong=false, layout='three'){
+      const cls = (name==='__AVATAR__') ? 'two' : (layout==='four' ? 'four' : layout==='two' ? 'two' : layout==='stack' ? 'stack' : 'three');
+      const wrap = el('div',{class:`field ${cls}`});
+      const id = `f_${name.replace(/[^a-z0-9]+/gi,'_')}`;
+      wrap.appendChild(el('label',{for:id}, label || name));
+
+      if(name === '__AVATAR__'){
+        const holder = el('div',{class:'avatar', id:'avatarHolder'},
+          el('div',{class:'preview', id:'avatarPreview', style:`background-image:url('data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 100 100&quot;><rect width=&quot;100&quot; height=&quot;100&quot; fill=&quot;%2310151f&quot;/><circle cx=&quot;50&quot; cy=&quot;38&quot; r=&quot;18&quot; fill=&quot;%232a3348&quot;/><rect x=&quot;20&quot; y=&quot;62&quot; width=&quot;60&quot; height=&quot;26&quot; rx=&quot;13&quot; fill=&quot;%232a3348&quot;/></svg>');`}),
+          el('div',{class:'meta'},
+            el('label',{class:'btn ghost', for:'avatarFile'},'Выбрать файл'),
+            el('small',{},'PNG/JPG, сохранится в JSON как data URL')
+          ),
+          el('input',{id:'avatarFile', type:'file', accept:'image/*', hidden:true})
+        );
+        wrap.appendChild(holder);
+        return wrap;
+      }
+
+      const input = (isLong || LONG_HINT.has(name))
+        ? el('textarea',{id, 'data-name':name, placeholder: label || name})
+        : el('input',{id, 'data-name':name, type:'text', placeholder: label || name});
+      wrap.appendChild(input);
+      return wrap;
+    }
+
+    function renderNonMagic() {
+      for(const group of FIELD_GROUPS){
+        const card = el('section',{class:'card'});
+        card.appendChild(el('h2',{},group.title));
+        const grid = el('div',{class:'grid'});
+        card.appendChild(grid);
+        for(const [rawName,label] of (group.fields||[])){
+          const name = normalizeName(rawName);
+          grid.appendChild( makeInput(name, label, group.long?.includes(name), group.layout) );
+        }
+        cards.appendChild(card);
+      }
+    }
+
+    // =============================
+    // 3) МАГИЯ
+    // =============================
+
+    // SlotsTotal N / SlotsRemaining N → уровень = N-18
+    function slotLevelFromName(n){
+      const m = /^Slots(?:Total|Remaining)\s+(\d+)$/.exec(n);
+      if(!m) return null;
+      const id=Number(m[1]); const lvl=id-18;
+      return (lvl>=1 && lvl<=9)? lvl:null;
+    }
+
+    // Загрузка и кеш списка заклинаний
+    let SPELLS_CACHE = []; // [{slug, name}]
+    let SPELLS_READY = null;
+
+    async function loadSpells(){
+      if (SPELLS_READY) return SPELLS_READY;
+      SPELLS_READY = fetch(API.spellsList)
+        .then(r=>r.ok ? r.json() : [])
+        .then(list => { SPELLS_CACHE = Array.isArray(list) ? list : []; })
+        .catch(()=>{ SPELLS_CACHE=[]; });
+      return SPELLS_READY;
+    }
+    function findSpellBySlugOrName(value){
+      if(!value) return null;
+      const bySlug = SPELLS_CACHE.find(s => s.slug === value);
+      if (bySlug) return bySlug;
+      const lc = String(value).toLowerCase();
+      return SPELLS_CACHE.find(s => s.name.toLowerCase() === lc) || null;
+    }
+
+    // Парсим магию из списка полей
+    function parseMagic(fields){
+      const EXPLICIT = { 1014:0, 1016:0, 1017:0, 1018:0, 1015:1, 1023:1, 1024:1, 1025:1, 1026:1, 1046:2, 1034:2, 1035:2, 1048:3, 1047:3 };
+      const toInt = (s)=>{ const n = parseInt(s,10); return Number.isFinite(n)? n:null; };
+      const inferSpellLevel = (id)=>{
+          if(id in EXPLICIT) return EXPLICIT[id];
+          const hundreds = Math.floor(id / 100); // без %1000, чтобы 1000→10 (ур.9)
+          let lvl = hundreds - 1;
+          if(lvl < 0) lvl = 0;
+          if(lvl > 9) lvl = 9;
+          return lvl;
+        };
+      const magic = { levels: Array.from({length:10}, ()=>({ slots:{}, spells:[] })), unassigned:[] }; // 0=кантрипы
+      for(const f of fields){
+        const name = normName(f.name);
+        const value = (f.value==null? '' : String(f.value));
+
+        if(name.startsWith('SlotsTotal ') || name.startsWith('SlotsRemaining ')){
+          if(!value.trim()) continue;
+          const lvl = slotLevelFromName(name);
+          if(lvl!=null){
+            if(name.startsWith('SlotsTotal ')) magic.levels[lvl].slots.total = { name, label:`Ячейки ур.${lvl} — всего`, value };
+            else magic.levels[lvl].slots.remaining = { name, label:`Ячейки ур.${lvl} — осталось`, value };
+          }
+          continue;
+        }
+
+        if(name.startsWith('Spells ')){
+          const parts = name.split(' ');
+          const id = toInt(parts[1]);
+          const val = value.trim();
+          if(!val) continue;
+          if(id==null){ magic.unassigned.push({ name, label:null, value: val }); continue; }
+          const lvl = inferSpellLevel(id);
+          magic.levels[lvl].spells.push({ name, value: val });
+          continue;
+        }
+      }
+      return magic;
+    }
+
+    function fieldInput(name,label,wide='three',isText=false,value=''){
+      const wrap=el('div',{class:`field ${wide}`}, el('label',{},label||name));
+      const node=isText? el('textarea',{ 'data-name':name, placeholder:label||name }) : el('input',{ 'data-name':name, type:'text', placeholder:label||name });
+      if(value) node.value=value;
+      wrap.appendChild(node); return wrap;
+    }
+
+    // Строка заклинания: комбобокс с поиском + кнопка «Подробнее»
+    function makeSpellLine(name, value){
+  // value может быть slug или name — попробуем сопоставить
+  let prefillSlug = "", prefillName = "";
+  const found = findSpellBySlugOrName(value);
+  if (found){ prefillSlug = found.slug; prefillName = found.name; }
+  else if (value){ prefillName = value; }
+
+  const wrap  = el('div',{class:'spell-line'});
+
+  // Комбобокс
+  const combo  = el('div',{class:'combo'});
+  const hidden = el('input',{'data-name': name || '', type:'hidden', value: prefillSlug});
+  const input  = el('input',{class:'combo-input', type:'text', placeholder:'Выберите заклинание…', value: prefillName});
+  const list   = el('div',{class:'combo-list'});
+
+  function renderList(filter=""){
+    list.innerHTML = "";
+    const f = filter.trim().toLowerCase();
+    let items = SPELLS_CACHE;
+    if (f){
+      items = items.filter(s => s.name.toLowerCase().includes(f) || s.slug.toLowerCase().includes(f));
+    }
+    if (!items.length){
+      list.appendChild(el('div',{class:'combo-item'}, "Ничего не найдено"));
+      return;
+    }
+    for(const s of items){
+      const row = el('div',{class:'combo-item'}, s.name, el('span',{class:'muted'}, s.slug));
+      // важно: mousedown предотвращаем, чтобы не было blur до click
+      row.addEventListener('mousedown', e => e.preventDefault());
+      row.addEventListener('click', ()=>{
+        input.value = s.name;       // читаемое имя
+        hidden.value = s.slug;      // сохраняем СТРОГО slug
+        combo.classList.remove('open');
+        // сброс раскрытого описания
+        detailBox.classList.remove('show');
+        detailBox.innerHTML = "";
+        moreBtn.textContent = 'Подробнее';
+      });
+      list.appendChild(row);
+    }
+  }
+
+  async function openAndRender(){
+    combo.classList.add('open');
+    renderList(input.value);
+    // Если словарь ещё не загружен — догружаем и перерисовываем список,
+    // чтобы «пустой» список не завис.
+    if (!SPELLS_CACHE.length){
+      try{
+        await loadSpells();
+        if (combo.classList.contains('open')) renderList(input.value);
+      }catch(_){}
+    }
+  }
+
+  input.addEventListener('focus', openAndRender);
+  input.addEventListener('input', openAndRender);
+
+  document.addEventListener('click', (e)=>{
+    if(!combo.contains(e.target)) combo.classList.remove('open');
+  });
+
+  combo.appendChild(hidden);
+  combo.appendChild(input);
+  combo.appendChild(list);
+
+  // Кнопки «Подробнее» и «Удалить», + блок описания
+  const moreBtn   = el('button',{class:'spell-more-btn', type:'button'}, 'Подробнее');
+  const delBtn    = el('button',{class:'spell-del-btn',  type:'button'}, 'Удалить');
+  const detailBox = el('div',{class:'spell-detail'});
+
+  async function toggleDetails(){
+    if (detailBox.classList.contains('show')) {
+      detailBox.classList.remove('show');
+      moreBtn.textContent = 'Подробнее';
+      return;
+    }
+    const picked = hidden.value || (findSpellBySlugOrName(input.value)?.slug || "");
+    detailBox.classList.add('show');
+    moreBtn.textContent = 'Скрыть';
+    if(!picked){
+      detailBox.innerHTML = '<em>Сначала выберите заклинание из списка</em>';
+      return;
+    }
+    detailBox.innerHTML = '<em>Загрузка…</em>';
+    try{
+      const r = await fetch(API.spellDetail(picked));
+      if(!r.ok){ detailBox.innerHTML = '<em>Не удалось загрузить</em>'; return; }
+      const data = await r.json();
+      detailBox.innerHTML = data.html || '<em>Пусто</em>';
+    }catch(_){
+      detailBox.innerHTML = '<em>Ошибка запроса</em>';
+    }
+  }
+  moreBtn.addEventListener('click', toggleDetails);
+
+  // Удалить: просто очищаем поле (чтобы при сохранении не попало в JSON)
+  delBtn.addEventListener('click', ()=>{
+    hidden.value = '';
+    input.value  = '';
+    detailBox.classList.remove('show');
+    detailBox.innerHTML = '';
+    moreBtn.textContent = 'Подробнее';
+    // по желанию можно удалить строку из DOM:
+    // wrap.remove();
+    // но удобнее оставить пустую строку для повторного выбора
+  });
+
+  wrap.appendChild(combo);
+  wrap.appendChild(moreBtn);
+  wrap.appendChild(delBtn);
+  wrap.appendChild(detailBox);
+
+  if(!SPELLS_CACHE.length){ loadSpells().then(()=>{}); }
+      return wrap;
+    }
+
+    function renderMagicCard(magic){
+      const card = el('section',{class:'card'});
+      card.appendChild(el('h2',{},'Магия'));
+
+      for(let lvl=0; lvl<=9; lvl++){
+        const slots = magic.levels[lvl].slots;
+        const spells = magic.levels[lvl].spells;
+
+        const lvlWrap = el('div', {class:'group-lvl'});
+        const head = el('div',{class:'level-head'},
+          el('div',{class:'lvl-title'}, lvl===0 ? 'Ур.0 — Заговоры' : `Ур.${lvl}`)
+        );
+        lvlWrap.appendChild(head);
+
+        const grid = el('div',{class:'grid'});
+
+        // Для уровней 1–9 — всегда выводим "всего" и "осталось" по формуле N = 18 + lvl
+        if (lvl >= 1) {
+          const N = 18 + lvl;
+          const totalName = `SlotsTotal ${N}`;
+          const remainName = `SlotsRemaining ${N}`;
+
+          // Если в JSON были значения — подставим их; иначе пусто
+          const totalVal = slots.total?.value || '';
+          const remainVal = slots.remaining?.value || '';
+
+          grid.appendChild(fieldInput(totalName, `Ячейки ур.${lvl} — всего`, 'two', false, totalVal));
+          grid.appendChild(fieldInput(remainName, `Ячейки ур.${lvl} — осталось`, 'two', false, remainVal));
+        }
+
+        // Контейнер заклинаний (10 строк минимум)
+        const spellBox = el('div',{class:'stack', id:`spellbox-l${lvl}`});
+
+        // 1) уже существующие
+        (spells || []).forEach(sp => spellBox.appendChild(makeSpellLine(sp.name, sp.value)));
+
+        // 2) пустые до 10 — но с корректным именем поля
+        const existing = (spells || []).length;
+        for (let i = existing; i < 10; i++) {
+          const genId = (lvl + 1) * 100 + (i + 1);      // даёт 100.. для ур.0, 200.. для ур.1, ..., 1000.. для ур.9
+          spellBox.appendChild(makeSpellLine(`Spells ${genId}`, ''));
+        }
+
+        grid.appendChild(spellBox);
+        lvlWrap.appendChild(grid);
+        card.appendChild(lvlWrap);
+      }
+
+      // Нераспределённые (если есть)
+      if((magic.unassigned||[]).length){
+        const un = el('div',{class:'group-lvl'});
+        un.appendChild(el('div',{class:'level-head'}, el('div',{class:'lvl-title'},'Нераспределённые заклинания')));
+        const box = el('div',{class:'grid'});
+        for(const sp of magic.unassigned){
+          box.appendChild(makeSpellLine(sp.name, sp.value));
+        }
+        un.appendChild(box);
+        card.appendChild(un);
+      }
+
+      return card;
+    }
+
+    // =============================
+    // 4) Рендер формы (всё вместе)
+    // =============================
+    async function renderFormFromJson(json){
+      // гарантируем наличие словаря заклинаний
+      await loadSpells();
+
+      cards.innerHTML='';
+
+      const fields = Array.isArray(json?.fields)? json.fields : [];
+
+      // НЕ магия
+      renderNonMagic();
+
+      // Магия
+      const magic = parseMagic(fields);
+      const magicCard = renderMagicCard(magic);
+      cards.appendChild(magicCard);
+
+      // Проставим значения для НЕ магии + аккуратно для магии
+      const byName = new Map();
+      for (const f of fields) {
+        const n = normalizeName(f?.name);
+        if (!n) continue;
+        byName.set(n, f);
+      }
+
+      document.querySelectorAll('[data-name]').forEach(node => {
+        const n = normalizeName(node.getAttribute('data-name'));
+        if (!n) return; // placeholder-строки без имени
+
+        // ищем поле по имени (мягкое сравнение)
+        let f = byName.get(n);
+        if (!f) {
+          const k = Array.from(byName.keys()).find(k => k.toLowerCase() === n.toLowerCase());
+          if (k) f = byName.get(k);
+        }
+        if (!f) return;
+
+        const raw = f.value ?? '';
+        const isCheckbox = String(f.type).toLowerCase() === 'checkbox';
+        const val = isCheckbox
+          ? (String(raw).toLowerCase() === 'yes' || String(raw).toLowerCase() === 'on' || String(raw).toLowerCase() === 'true' ? '✔' : '')
+          : String(raw);
+
+        // === ВАЖНО: если это скрытое поле заклинания — храним именно slug ===
+        const isSpellHidden = node.type === 'hidden' && node.closest('.spell-line');
+        if (isSpellHidden) {
+          // попытка сопоставить: если в JSON лежало name — переводим в slug
+          const found = findSpellBySlugOrName(val);
+          const slug = found ? found.slug : val;      // если уже slug — оставим
+          node.value = slug;
+
+          // также обновим видимый input с name (сосед по .combo)
+          const combo = node.closest('.combo');
+          const visibleInput = combo ? combo.querySelector('.combo-input') : null;
+          if (visibleInput) {
+            visibleInput.value = found ? found.name : val;
+          }
+          return;
+        }
+
+        // обычные поля — как раньше
+        node.value = val;
+      });
+
+
+      // Аватар из JSON
+      if(json?.avatarDataUrl){
+        avatarDataUrl = json.avatarDataUrl;
+        const prev = document.getElementById('avatarPreview');
+        if(prev) prev.style.backgroundImage = `url('${avatarDataUrl}')`;
+      }
+    }
+
+    // =============================
+    // 5) Аватар: загрузка и превью
+    // =============================
+    let avatarDataUrl = '';
+    document.addEventListener('change', (e)=>{
+      if(e.target && e.target.id === 'avatarFile'){
+        const f = e.target.files?.[0];
+        if(!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+          avatarDataUrl = rd.result;
+          const prev = document.getElementById('avatarPreview');
+          if(prev) prev.style.backgroundImage = `url('${avatarDataUrl}')`;
+        };
+        rd.readAsDataURL(f);
+      }
+    });
+
+    // =============================
+    // 6) Интеграция с сервером (PDF → JSON, списки листов, сохранение)
+    // =============================
+    const API = {
+      uploadPdf: '/api/upload-pdf/',
+      listSheets: '/api/media-sheets/',
+      getSheet: id => `/api/sheets/${id}/`,
+      createSheet: '/api/sheets/',
+      updateSheet: id => `/api/sheets/${id}/`,
+      spellsList: '/api/spells/',
+      spellDetail: slug => `/api/spells/${encodeURIComponent(slug)}/`,
+    };
+
+    const inputPdf = document.getElementById('pdfFile');
+    inputPdf.addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0];
+      if(!f) return;
+      await uploadPdfToServer(f);
+    });
+
+    const sheetSelect = document.getElementById('sheetSelect');
+    let currentSheetId = null;
+
+    sheetSelect.addEventListener('change', async ()=>{
+      const id = sheetSelect.value;
+      if(!id) return;
+      const res = await fetch(API.getSheet(id));
+      if(!res.ok){ alert('Не удалось загрузить лист'); return; }
+      const item = await res.json();
+      currentSheetId = item.id;
+      await renderFormFromJson(item.data);
+    });
+
+    // Сохранение (кнопка «Сохранить»)
+    const btnSave = document.getElementById('btnSave');
+    btnSave.addEventListener('click', async ()=>{
+      const dataToSave = buildJsonFromForm();
+
+      if (currentSheetId) {
+        const res = await fetch(API.updateSheet(currentSheetId), {
+          method: 'PATCH',
+          headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF() },
+          body: JSON.stringify({ data: dataToSave })
+        });
+        if (!res.ok) { alert('Не удалось сохранить лист'); return; }
+      } else {
+        const res = await fetch(API.createSheet, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF() },
+          body: JSON.stringify({ name: 'Лист без названия', data: dataToSave })
+        });
+        if (!res.ok) { alert('Не удалось создать лист'); return; }
+        const created = await res.json();
+        if (created && created.id) currentSheetId = created.id;
+      }
+
+      // подтягиваем актуальные данные и перерисовываем
+      if (currentSheetId) {
+        const r2 = await fetch(API.getSheet(currentSheetId));
+        if (r2.ok) {
+          const item = await r2.json();
+          if (item && item.data) await renderFormFromJson(item.data);
+        }
+      }
+
+      await loadSheets();
+      if (currentSheetId) sheetSelect.value = String(currentSheetId);
+      alert('Сохранено!');
+    });
+
+    async function uploadPdfToServer(file){
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(API.uploadPdf, { method:'POST', headers: { 'X-CSRFToken': CSRF() }, body: fd });
+      if(!res.ok){ alert('Не удалось распарсить PDF'); return; }
+      const payload = await res.json(); // {id, name, data}
+      currentSheetId = payload.id || null;
+      await renderFormFromJson(payload.data || payload);
+      await loadSheets();
+      if(payload.id) sheetSelect.value = String(payload.id);
+    }
+
+    async function loadSheets(){
+      const res = await fetch(API.listSheets);
+      if(!res.ok) return;
+      const items = await res.json();
+      const cur = sheetSelect.value;
+      sheetSelect.innerHTML = '<option value="">— выбрать лист —</option>'
+        + items.map(it => {
+            const labelDate = it.created_at ? ' — ' + new Date(it.created_at).toLocaleString() : '';
+            if (it.id) {
+              return `<option value="${it.id}">${it.name}${labelDate}</option>`;
+            } else {
+              return `<option value="" disabled>${it.name} — (нет в БД)</option>`;
+            }
+          }).join('');
+      if(cur) sheetSelect.value = cur;
+    }
+
+    // Построить JSON из формы (для сохранения)
+    function buildJsonFromForm(){
+      const out = { fields: [], avatarDataUrl };
+      document.querySelectorAll('[data-name]').forEach(n=>{
+        const name = n.getAttribute('data-name');
+        const value = n.value ?? '';
+        if(!name) return;
+
+        // если это скрытое поле заклинания и оно пустое — не пишем в JSON
+        if (n.type === 'hidden' && /^Spells\s+/i.test(name) && String(value).trim() === '') {
+          return;
+        }
+
+        out.fields.push({ page:null, name, type:'Unknown', rect:null, value, label:'', export_values:null });
+      });
+      return out;
+    }
+
+    // Первая загрузка списка листов и словаря заклинаний
+    loadSheets().catch(()=>{});
+    loadSpells().catch(()=>{});
+</script>
+</body>
+</html>
