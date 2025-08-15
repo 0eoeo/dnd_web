@@ -15,4 +15,13 @@ urlpatterns = [
 
     path("api/rolls", views.api_rolls),
     path("api/rolls/create", views.api_roll_create),
+
+    path("api/art/media", views.api_media_list_create, name="api_media_list_create"),  # GET(list), POST(upload)
+    path("api/art/media/<int:pk>/", views.api_media_detail, name="api_media_detail"),  # GET/DELETE
+
+    # Articles API
+    path("api/art/lore/articles", views.api_articles_list_create, name="api_articles_list_create"),
+    path("api/art/lore/articles/<int:pk>/", views.api_article_detail, name="api_article_detail"),
+    # Article comments API
+    path("api/art/lore/articles/<int:pk>/comments", views.api_article_comments, name="api_article_comments"),
 ]

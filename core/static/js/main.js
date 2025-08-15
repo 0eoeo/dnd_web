@@ -19,8 +19,6 @@ const btnSave = document.getElementById('btnSave');
 
 let currentSheetId = null;
 
-// Удалено: «голый» POST на /api/rolls/create с несуществующей переменной entry
-
 inputPdf.addEventListener('change', async (e)=>{
   const f = e.target.files?.[0];
   if(!f) return;
@@ -107,9 +105,17 @@ async function loadSheets(){
   if(cur) sheetSelect.value = cur;
 }
 
-// init
-loadSheets().catch(()=>{});
-initDiceSidebar();
+// init — только после DOM, чтобы #diceSidebar точно был в DOM
+document.addEventListener('DOMContentLoaded', ()=>{
+  console.log('[main] DOMContentLoaded');
+  loadSheets().catch(()=>{});
+  try{
+    console.log('[main] initDiceSidebar() call');
+    initDiceSidebar();
+  }catch(e){
+    console.error('[main] initDiceSidebar failed', e);
+  }
+});
 
 // avatar preview
 document.addEventListener('change', (e)=>{

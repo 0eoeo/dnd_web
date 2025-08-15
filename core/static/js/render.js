@@ -9,18 +9,24 @@ export function makeInput(name, label, isLong=false, layout='three'){
   const id = `f_${name.replace(/[^a-z0-9]+/gi,'_')}`;
   wrap.appendChild(el('label',{for:id}, label || name));
 
-  if(name === '__AVATAR__'){
-    const holder = el('div',{class:'avatar', id:'avatarHolder'},
-      el('div',{class:'preview', id:'avatarPreview', style:`background-image:url('data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 100 100&quot;><rect width=&quot;100&quot; height=&quot;100&quot; fill=&quot;%2310151f&quot;/><circle cx=&quot;50&quot; cy=&quot;38&quot; r=&quot;18&quot; fill=&quot;%232a3348&quot;/><rect x=&quot;20&quot; y=&quot;62&quot; width=&quot;60&quot; height=&quot;26&quot; rx=&quot;13&quot; fill=&quot;%232a3348&quot;/></svg>');`} ),
-      el('div',{class:'meta'},
-        el('label',{class:'btn ghost', for:'avatarFile'},'Выбрать файл'),
-        el('small',{style:`padding-left: 10px;`},'PNG/JPG')
-      ),
-      el('input',{id:'avatarFile', type:'file', accept:'image/*', hidden:true})
-    );
-    wrap.appendChild(holder);
-    return wrap;
-  }
+  if (name === '__AVATAR__'){
+  const placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2310151f'/><circle cx='50' cy='38' r='18' fill='%232a3348'/><rect x='20' y='62' width='60' height='26' rx='13' fill='%232a3348'/></svg>";
+
+  const holder = el('div',{class:'avatar', id:'avatarHolder'},
+    el('div',{
+      class:'preview',
+      id:'avatarPreview',
+      style:`background-image:url('${placeholderSvg}')`
+    }),
+    el('div',{class:'meta'},
+      el('label',{class:'btn ghost', for:'avatarFile'},'Выбрать файл'),
+      el('small',{style:'padding-left:10px;'},'PNG/JPG')
+    ),
+    el('input',{id:'avatarFile', type:'file', accept:'image/*', hidden:true})
+  );
+  wrap.appendChild(holder);
+  return wrap;
+}
 
   const input = (isLong || LONG_HINT.has(name))
     ? el('textarea',{id, 'data-name':name, placeholder: label || name})

@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
+from typing import List
 
 from django.conf import settings
+from django.core.files.uploadedfile import UploadedFile
+from django.db import transaction
 from django.http import JsonResponse, HttpResponseBadRequest, HttpRequest, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404, render
@@ -9,12 +12,13 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 import json
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.utils.timezone import now
-from .models import Roll
+from .models import Roll, LoreComment, LoreTopic, MediaAsset, LoreArticleComment, LoreArticle, LoreArticleImage, \
+    SpellCache
 
 from .config import SPELLS
 from .models import CharacterSheet
 from .extract_pdf_form_fields import extract_form_fields  # проверь путь
-from .utils import get_spell_detail
+from .utils import fetch_spell_html_via_process
 
 
 def _sheet_item(s):
@@ -191,19 +195,34 @@ def spells_list(request):
 
 @require_http_methods(["GET"])
 def spell_detail_view(request, slug: str):
-    """
-    Вернуть HTML-фрагмент описания заклинания.
-    """
     if not slug:
         return HttpResponseBadRequest("slug required")
-    html = get_spell_detail(slug)  # <- твоя функция из сообщения
-    return JsonResponse({"slug": slug, "html": html})
+
+    TTL_SEC = 3600
+    refresh = request.GET.get("refresh") == "1"
+
+    obj = SpellCache.objects.filter(slug=slug).first()
+    if obj and obj.html and not refresh:
+        if (now() - obj.updated_at).total_seconds() < TTL_SEC:
+            return JsonResponse({"slug": slug, "html": obj.html})
+
+    # Только при отсутствии/просрочке кэша — один «дорогой» вызов в отдельном процессе
+    html = fetch_spell_html_via_process(slug, timeout_sec=30)
+
+    if obj:
+        if html and "Не удалось" not in html:
+            obj.html = html
+            obj.save(update_fields=["html", "updated_at"])
+    else:
+        obj = SpellCache.objects.create(slug=slug, html=html)
+
+    return JsonResponse({"slug": slug, "html": obj.html})
 
 @require_http_methods(["GET"])
 def api_rolls(request):
     limit = int(request.GET.get('limit', 50))
     limit = max(1, min(limit, 200))
-    data = [r.as_dict() for r in Roll.objects.all()[:limit]]
+    data = [r.as_dict() for r in Roll.objects.order_by('-created_at')[:limit]]
     return JsonResponse({"items": data})
 
 @require_http_methods(["POST"])
@@ -244,3 +263,183 @@ def api_roll_create(request):
         pass
 
     return JsonResponse({"ok": True, "item": item}, status=201)
+
+# ============ Media API ============
+@require_http_methods(["GET", "POST"])
+def api_media_list_create(request: HttpRequest) -> JsonResponse:
+    if request.method == "GET":
+        kind = request.GET.get("kind")
+        qs = MediaAsset.objects.all()
+        if kind in (MediaAsset.MEDIA_IMAGE, MediaAsset.MEDIA_AUDIO, MediaAsset.MEDIA_VIDEO):
+            qs = qs.filter(kind=kind)
+        limit = int(request.GET.get("limit", "50"))
+        limit = max(1, min(limit, 200))
+        items = [m.as_dict() for m in qs[:limit]]
+        return JsonResponse({"items": items})
+
+    # POST (multipart/form-data)
+    f = request.FILES.get("file")
+    kind = request.POST.get("kind")
+    title = (request.POST.get("title") or "").strip()
+    description = (request.POST.get("description") or "").strip()
+
+    if not f or kind not in (MediaAsset.MEDIA_IMAGE, MediaAsset.MEDIA_AUDIO, MediaAsset.MEDIA_VIDEO):
+        return HttpResponseBadRequest("file and valid kind required")
+
+    asset = MediaAsset.objects.create(
+        author=request.user if request.user.is_authenticated else None,
+        kind=kind,
+        file=f,
+        title=title,
+        description=description,
+    )
+    item = asset.as_dict()
+
+    # Realtime: уведомление в группу "art" (опционально)
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "art", {"type": "media.created", "item": item}
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({"ok": True, "item": item}, status=201)
+
+@require_http_methods(["GET", "DELETE"])
+def api_media_detail(request: HttpRequest, pk: int) -> JsonResponse:
+    asset = get_object_or_404(MediaAsset, pk=pk)
+    if request.method == "GET":
+        return JsonResponse({"item": asset.as_dict()})
+    # DELETE (права в продакшне ограничить)
+    asset.delete()
+    return JsonResponse({"ok": True})
+
+# ===== Articles =====
+
+@require_http_methods(["GET", "POST"])
+def api_articles_list_create(request: HttpRequest) -> JsonResponse:
+    if request.method == "GET":
+        limit = int(request.GET.get("limit", "50"))
+        limit = max(1, min(limit, 200))
+        items = [a.as_dict() for a in LoreArticle.objects.all()[:limit]]
+        return JsonResponse({"items": items})
+
+    # POST multipart: title, excerpt?, content, cover?, gallery[]
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        title = (request.POST.get("title") or "").strip()
+        excerpt = (request.POST.get("excerpt") or "").strip()
+        content = (request.POST.get("content") or "").strip()
+        cover: UploadedFile | None = request.FILES.get("cover")
+        gallery_files: List[UploadedFile] = request.FILES.getlist("gallery")
+
+        if not title or not content:
+            return HttpResponseBadRequest("title and content required")
+
+        with transaction.atomic():
+            article = LoreArticle.objects.create(
+                title=title,
+                excerpt=excerpt,
+                content=content,
+                author=request.user if request.user.is_authenticated else None
+            )
+            if cover:
+                article.cover = cover
+                article.save(update_fields=["cover"])
+
+            for f in gallery_files:
+                LoreArticleImage.objects.create(article=article, image=f)
+
+        item = article.as_dict()
+        _ws_notify("art", "article", item)  # realtime
+        return JsonResponse({"ok": True, "item": item}, status=201)
+
+    return HttpResponseBadRequest("multipart/form-data required")
+
+@require_http_methods(["GET"])
+def api_article_detail(request: HttpRequest, pk: int) -> JsonResponse:
+    article = get_object_or_404(LoreArticle, pk=pk)
+    return JsonResponse({"item": article.as_dict()})
+
+# ===== Article comments =====
+
+@require_http_methods(["GET", "POST"])
+def api_article_comments(request: HttpRequest, pk: int) -> JsonResponse:
+    article = get_object_or_404(LoreArticle, pk=pk)
+
+    if request.method == "GET":
+        items = [c.as_dict() for c in article.comments.all()]
+        return JsonResponse({"items": items})
+
+    # POST JSON: {"content": "..."}
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return HttpResponseBadRequest("Invalid JSON")
+    content = (payload.get("content") or "").strip()
+    if not content:
+        return HttpResponseBadRequest("content required")
+
+    c = LoreArticleComment.objects.create(
+        article=article,
+        content=content,
+        author=request.user if request.user.is_authenticated else None
+    )
+    item = c.as_dict()
+    _ws_notify("art", "lore_comment", item)  # realtime
+    return JsonResponse({"ok": True, "item": item}, status=201)
+
+@csrf_exempt
+@require_http_methods(["GET", "DELETE"])
+def api_article_detail(request, pk):
+    article = get_object_or_404(LoreArticle, pk=pk)
+    if request.method == "GET":
+        return JsonResponse({"item": article.as_dict()})
+    article.delete()
+    _ws_notify_silent("art", "article", {"deleted_id": pk})
+    return JsonResponse({"ok": True})
+
+@require_http_methods(["GET", "DELETE"])
+def api_media_detail(request, pk):
+    """
+    GET    /api/art/media/<id>/      -> {"item": {...}}
+    DELETE /api/art/media/<id>/      -> {"ok": true}
+    Права: автор файла или staff/superuser (рекомендуется).
+    В DEV можно временно ослабить до "любой аутентифицированный".
+    """
+    asset = get_object_or_404(MediaAsset, pk=pk)
+
+    if request.method == "GET":
+        return JsonResponse({"item": asset.as_dict()})
+
+    asset.file.delete(save=False)
+    asset.delete()
+
+    _ws_notify_silent("art", "media", {"deleted_id": pk})
+    return JsonResponse({"ok": True})
+
+# ===== helpers =====
+
+def _ws_notify(group: str, msg_type: str, item: dict) -> None:
+    """Отправка сообщения в группу WS (если настроены Channels). Тихо игнорируем, если в окружении нет слоя."""
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        ch = get_channel_layer()
+        if ch:
+            async_to_sync(ch.group_send)(group, {"type": f"{msg_type}", "item": item})
+    except Exception:
+        # отсутствие настроенного слоя или любая ошибка — молча
+        pass
+
+def _ws_notify_silent(group: str, msg_type: str, item: dict) -> None:
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        ch = get_channel_layer()
+        if ch:
+            async_to_sync(ch.group_send)(group, {"type": f"{msg_type}", "item": item})
+    except Exception:
+        pass

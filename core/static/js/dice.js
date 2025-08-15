@@ -1,83 +1,122 @@
 // core/static/js/dice.js
-import { el } from './utils.js';
+// Клиент для бросков кубиков: история с сервера, отправка на сервер, realtime через WebSocket.
+console.log('[dice] FILE LOADED v1', import.meta.url);
+import { el, CSRF } from './utils.js';
 import { getAbilityModifiers, getCharacterName } from './state.js';
 
-/** === Серверные API и realtime === */
-const API_LIST_URL = '/api/rolls?limit=5';
+/* === Серверные API и realtime === */
+const API_LIST_URL   = '/api/rolls?limit=5';
 const API_CREATE_URL = '/api/rolls/create';
-const WS_PATH = '/ws/rolls';
+const WS_PATH        = '/ws/rolls';
 
-/** Загрузка последних N бросков с сервера */
+/* ЛОГ-ПОМOЩНИКИ (временные, можно удалить после отладки) */
+const log = (...a)=> console.log('[dice]', ...a);
+const warn = (...a)=> console.warn('[dice]', ...a);
+const err = (...a)=> console.error('[dice]', ...a);
+
+/* Загрузка последних N бросков с сервера */
 async function fetchServerHistory(limit = 5){
-  const res = await fetch(`/api/rolls?limit=${limit}`, { credentials: 'same-origin' });
-  if (!res.ok) return [];
-  const json = await res.json().catch(()=>({items:[]}));
-  return Array.isArray(json.items) ? json.items : [];
+  try{
+    const res = await fetch(`/api/rolls?limit=${limit}`, { credentials: 'same-origin' });
+    if (!res.ok){
+      warn('GET /api/rolls failed', res.status);
+      return [];
+    }
+    const json = await res.json().catch(()=>({items:[]}));
+    if (!Array.isArray(json.items)) {
+      warn('GET /api/rolls unexpected payload', json);
+      return [];
+    }
+    log('history loaded', json.items.length);
+    return json.items;
+  }catch(e){
+    err('history fetch error', e);
+    return [];
+  }
 }
 
-/** Отправка нового броска на сервер (остальное сделает WebSocket) */
+/* Отправка нового броска на сервер (обновление придёт по WebSocket) */
 async function sendRollToServer(entry){
-  await fetch(API_CREATE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF() },
-    credentials: 'same-origin',
-    body: JSON.stringify(entry)
-  });
+  try{
+    const token = CSRF();
+    if (!token) warn('no csrftoken cookie found');
+    const res = await fetch(API_CREATE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+        'X-CSRFToken': token
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(entry)
+    });
+    if (!res.ok){
+      warn('POST /api/rolls/create failed', res.status, await res.text().catch(()=>null), { csrf: token });
+      throw new Error('create-failed');
+    }
+    log('POST /api/rolls/create OK');
+  }catch(e){
+    err('sendRollToServer error', e);
+    throw e;
+  }
 }
 
-/** Подключение к WebSocket (с автопереподключением) */
+/* Подключение к WebSocket (с автопереподключением) */
 function connectRollsWS(onNewRoll){
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const url = `${proto}://${location.host}${WS_PATH}`;
   let ws;
 
   function open(){
+    log('WS connecting to', url);
     ws = new WebSocket(url);
+    ws.onopen = () => { log('WS connected'); };
+    ws.onerror = (e) => { warn('WS error', e); };
     ws.onmessage = (ev)=>{
       try{
         const msg = JSON.parse(ev.data);
-        if (msg.type === 'roll' && msg.item) onNewRoll(msg.item);
-      }catch(e){}
+        if (msg?.type === 'roll' && msg.item) {
+          log('WS roll item', msg.item);
+          onNewRoll(msg.item);
+        } else {
+          log('WS message skipped', msg);
+        }
+      }catch(e){ /* ignore parse error */ }
     };
-    ws.onclose = ()=> setTimeout(open, 1500);
+    ws.onclose = (ev)=> { warn('WS closed', ev.code, ev.reason || ''); setTimeout(open, 1500); };
   }
 
   open();
   return ()=> { try{ ws && ws.close(); }catch(e){} };
 }
 
-/** === история бросков (сервер) — совместимые обёртки === */
+/* === история бросков (сервер) — совместимые обёртки === */
 export async function loadHistory(){
-  // Возвращаем серверные данные в формате, совместимом с рендером
-  const items = await fetchServerHistory(5);
-  return items;
+  return await fetchServerHistory(5);
 }
 
 // Локальное хранение больше не используется, но оставляем функции для совместимости:
-export function saveHistory(_list){ /* no-op, теперь хранение на сервере */ }
+export function saveHistory(_list){ /* no-op */ }
 
-/** Раньше добавляли в localStorage — теперь шлём на сервер,
-    а обновление UI произойдёт от WebSocket-сообщения */
+/* Раньше добавляли в localStorage — теперь шлём на сервер,
+   а обновление UI произойдёт от WebSocket-сообщения */
 export async function appendHistory(entry){
   try{
     await sendRollToServer({ ts: Date.now(), ...entry });
   }catch(e){
-    // fallback: если сервер недоступен, можно (опционально) временно показать локально
+    err('appendHistory failed (fallback to local render)', e);
+    // fallback: отрисуем локально, чтобы пользователь видел результат, даже если сервер временно недоступен
     const container = document.querySelector('#diceSidebar .roll-history');
     if (container){
-      prependHistoryItem(container, {
-        ts: Date.now(),
-        ...entry
-      }, true);
+      prependHistoryItem(container, { ts: Date.now(), ...entry }, true);
       trimHistory(container, 5);
     }
   }
 }
 
-/** === утилиты броска === */
+/* === утилиты броска === */
 function rollOnce(sides){ return Math.floor(Math.random() * sides) + 1; }
 function parseSides(s){ // 'd8' -> 8
-  const m = /^d(\d+)$/i.exec(String(s).trim());
+  const m = /^\s*d\s*(\d+)\s*$/i.exec(String(s||'').trim());
   return m ? parseInt(m[1],10) : 20;
 }
 function formatBreakdown(results, mod){
@@ -89,7 +128,7 @@ function formatBreakdown(results, mod){
   return base;
 }
 
-/** === DOM-хелперы истории === */
+/* === DOM-хелперы истории === */
 function createHistoryItemNode(it, highlight = false){
   const who = it.character || 'Безымянный';
   const spell = it.spell ? ` — ${it.spell}` : '';
@@ -123,9 +162,9 @@ function trimHistory(container, limit){
   }
 }
 
-/** === рендер истории === */
+/* === рендер истории === */
 async function renderHistory(container){
-  if(!container) return;
+  if(!container){ warn('renderHistory: no container'); return; }
   container.innerHTML = '';
 
   const list = await loadHistory(); // уже сервер
@@ -140,12 +179,12 @@ async function renderHistory(container){
   });
 }
 
-/** === обновление подписей характеристик в ПРОИЗВОЛЬНОЙ панели === */
+/* === обновление подписей характеристик в ПРОИЗВОЛЬНОЙ панели === */
 export function refreshFreeDiceAbilities(){
   const select = document.querySelector('#diceSidebar select[data-role="free-ability"]');
-  if(!select) return;
+  if(!select){ warn('refreshFreeDiceAbilities: no select'); return; }
   const current = select.value;
-  const abilities = getAbilityModifiers(); // {СИЛ:+2, ...}
+  const abilities = getAbilityModifiers?.() || {}; // страхуемся
 
   // Пересобираем опции (плейсхолдер оставим первым)
   select.innerHTML = '';
@@ -160,9 +199,9 @@ export function refreshFreeDiceAbilities(){
   if ([...select.options].some(o=>o.value===current)) select.value = current;
 }
 
-/** === форма произвольного броска (всегда видна) === */
+/* === форма произвольного броска (всегда видна) === */
 function renderFreeDicePanel(container){
-  if(!container) return;
+  if(!container){ warn('render: no container'); return; }
 
   const freePanel = el('div',{class:'dice-panel'},
     el('h3',{},'Произвольный бросок')
@@ -188,7 +227,7 @@ function renderFreeDicePanel(container){
   row2.appendChild(el('div',{}, el('label',{},'Характеристика'), abSelect));
 
   const actions = el('div',{class:'dice-actions'});
-  const rollBtn = el('button',{class:'btn primary', type:'button'},'Бросить');
+  const rollBtn = el('button',{class:'btn primary', type:'button', id:'freeRollBtn'},'Бросить');
   actions.appendChild(rollBtn);
 
   freePanel.appendChild(row1);
@@ -210,36 +249,44 @@ function renderFreeDicePanel(container){
 
   // realtime подписка
   connectRollsWS((item)=>{
-    // Вставляем пришедший от сервера новый бросок в UI с подсветкой
     prependHistoryItem(historyList, item, true);
     trimHistory(historyList, 5);
   });
 
   // действие «Бросить»
+  log('bind click');
   rollBtn.addEventListener('click', async ()=>{
-    const sides = parseSides(dieSelect.value);                     // d20 -> 20
-    const count = Math.max(1, parseInt(countInput.value,10) || 1); // сколько кубиков
-    const abKey = abSelect.value;
-    const mods = getAbilityModifiers();
-    const abMod = abKey ? (mods[abKey] || 0) : 0;
+    log('click start');
+    try{
+      const sides = parseSides(dieSelect.value);                     // d20 -> 20
+      const count = Math.max(1, parseInt(countInput.value,10) || 1); // сколько кубиков
+      const abKey = abSelect.value;
+      const mods = getAbilityModifiers?.() || {};
+      const abMod = abKey ? (mods[abKey] || 0) : 0;
 
-    const rolls = Array.from({length:count}, ()=> rollOnce(sides));
-    const subtotal = rolls.reduce((a,b)=>a+b,0) + abMod;
-    const breakdown = formatBreakdown(rolls, abMod);
-    const expr = `${count}d${sides}${abMod? (abMod>0?`+${abMod}`:`${abMod}`):''}`;
+      const rolls = Array.from({length:count}, ()=> rollOnce(sides));
+      const subtotal = rolls.reduce((a,b)=>a+b,0) + abMod;
+      const breakdown = formatBreakdown(rolls, abMod);
+      const expr = `${count}d${sides}${abMod? (abMod>0?`+${abMod}`:`${abMod}`):''}`;
 
-    // Отправляем на сервер — новый элемент появится у всех по WebSocket
-    await appendHistory({
-      character: getCharacterName(),
-      spell: '',
-      expr,
-      total: subtotal,
-      breakdown
-    });
+      const payload = {
+        character: (getCharacterName?.() || 'Безымянный'),
+        spell: '',
+        expr,
+        total: subtotal,
+        breakdown
+      };
+      log('payload', payload);
+
+      await appendHistory(payload);
+      log('appendHistory done');
+    }catch(e){
+      err('click handler error', e);
+    }
   });
 }
 
-/** === панель броска внутри заклинания (с запоминанием настроек по slug) === */
+/* === панель броска внутри заклинания (с запоминанием настроек по slug) === */
 const LS_SPELL_DICE_PREFIX = 'spell_dice_cfg_v2_'; // + slug
 export function openDiceForSpell(spell, mount){
   const prev = mount.querySelector('.dice-panel');
@@ -279,7 +326,7 @@ export function openDiceForSpell(spell, mount){
   row1.appendChild(el('div',{}, el('label',{},'Количество кубиков'), countInput));
 
   const row2 = el('div',{class:'dice-row'});
-  const abilities = getAbilityModifiers();
+  const abilities = getAbilityModifiers?.() || {};
   const abSelect = el('select',{}, el('option',{value:''},'Без характеристики'));
   for(const key of ['СИЛ','ЛОВ','ТЕЛ','ИНТ','МДР','ХАР']){
     const v = abilities[key] ?? 0;
@@ -301,40 +348,59 @@ export function openDiceForSpell(spell, mount){
   mount.appendChild(panel);
 
   rollBtn.addEventListener('click', async ()=>{
-    const sides = parseSides(dieSelect.value);
-    const count = Math.max(1, parseInt(countInput.value,10) || 1);
-    const abKey = abSelect.value;
-    const mods = getAbilityModifiers();
-    const abMod = abKey ? (mods[abKey] || 0) : 0;
+    try{
+      const sides = parseSides(dieSelect.value);
+      const count = Math.max(1, parseInt(countInput.value,10) || 1);
+      const abKey = abSelect.value;
+      const mods = getAbilityModifiers?.() || {};
+      const abMod = abKey ? (mods[abKey] || 0) : 0;
 
-    // сохранить конфиг (без доп. модификаторов)
-    localStorage.setItem(cfgKey, JSON.stringify({
-      dieSides: dieSelect.value,
-      count,
-      abKey
-    }));
+      // сохранить конфиг (без доп. модификаторов)
+      localStorage.setItem(cfgKey, JSON.stringify({
+        dieSides: dieSelect.value,
+        count,
+        abKey
+      }));
 
-    const rolls = Array.from({length:count}, ()=> rollOnce(sides));
-    const subtotal = rolls.reduce((a,b)=>a+b,0) + abMod;
-    const breakdown = formatBreakdown(rolls, abMod);
-    const expr = `${count}d${sides}${abMod? (abMod>0?`+${abMod}`:`${abMod}`):''}`;
+      const rolls = Array.from({length:count}, ()=> rollOnce(sides));
+      const subtotal = rolls.reduce((a,b)=>a+b,0) + abMod;
+      const breakdown = formatBreakdown(rolls, abMod);
+      const expr = `${count}d${sides}${abMod? (abMod>0?`+${abMod}`:`${abMod}`):''}`;
 
-    await appendHistory({
-      character: getCharacterName(),
-      spell:     spell?.name || '',
-      expr,
-      total: subtotal,
-      breakdown
-    });
+      await appendHistory({
+        character: (getCharacterName?.() || 'Безымянный'),
+        spell: spell?.name || '',
+        expr,
+        total: subtotal,
+        breakdown
+      });
+    }catch(e){
+      err('spell panel click error', e);
+    }
   });
 }
 
-/** === инициализация правой панели (всегда видна) === */
+/* === инициализация правой панели (всегда видна) === */
 export function initDiceSidebar(){
-  const host = document.getElementById('diceSidebar');
-  if(!host) return;
-  renderFreeDicePanel(host);
+  try{
+    const host = document.getElementById('diceSidebar');
+    if(!host){ warn('no #diceSidebar'); return; }
+    log('init');
+    renderFreeDicePanel(host);
+    log('sidebar initialized');
+  }catch(e){
+    err('init failed', e);
+  }
 }
 
 // слушаем событие от state.js, чтобы обновить подписи в free-панели
 document.addEventListener('abilities-updated', refreshFreeDiceAbilities);
+
+// Гарантированный вызов после загрузки DOM (на случай, если main.js не делает это)
+document.addEventListener('DOMContentLoaded', ()=> {
+  try{
+    initDiceSidebar();
+  }catch(e){
+    err('DOM init failed', e);
+  }
+});
