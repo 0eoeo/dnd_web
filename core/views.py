@@ -47,7 +47,7 @@ def _parse_payload(request):
 
 @ensure_csrf_cookie
 def viewer(request):
-    return render(request, "core/viewer.html")
+    return render(request, "viewer.html")
 
 
 @require_http_methods(["GET", "POST"])

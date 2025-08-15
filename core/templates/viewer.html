@@ -1,0 +1,41 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Форма персонажа D&D — загрузка PDF по name</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+  <div class="container with-sidebar">
+    <div class="toolbar">
+      <h1>Форма персонажа D&D</h1>
+      <span class="tag"><span class="dot"></span> SHREK GAMES</span>
+      <div class="spacer"></div>
+
+      <select id="sheetSelect" title="Выбрать сохранённый лист" style="min-width:220px">
+        <option value="">— выбрать лист —</option>
+      </select>
+
+      <label class="btn ghost" for="pdfFile">Загрузить PDF</label>
+      <input id="pdfFile" type="file" accept="application/pdf" hidden>
+
+      <button class="btn primary" id="btnSave" type="button">Сохранить</button>
+    </div>
+
+    <div class="main">
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <!-- ВНИМАНИЕ: id должен быть diceSidebar -->
+    <aside class="sidebar">
+      <div id="diceSidebar" class="sidebar-inner">
+        <!-- сюда dice.js сам вставит: панель произвольного броска и Историю -->
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

@@ -1,121 +1,164 @@
-/* ===== Общие стили ===== */
-body {
-    font-family: 'Segoe UI', Tahoma, sans-serif;
-    background: linear-gradient(180deg, #faf6f2, #f3eee9);
-    color: #3f3a36;
-    margin: 0;
-    padding: 0;
-    line-height: 1.6;
+:root{
+  --bg:#0f1115;
+  --card:#161a22;
+  --ink:#e7ecf4;
+  --muted:#9aa4b2;
+  --accent:#8b5cf6;
+  --accent-2:#22d3ee;
+  --border:#232938;
+  --good:#10b981;
+  --bad:#ef4444;
+  --radius:16px;
+  --shadow:0 6px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+  --input:#0c0f14;
+  --input-border:#2a3244;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;padding:0;font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+  background:
+    radial-gradient(1200px 800px at 100% -20%, rgba(136,84,255,.15), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(34,211,238,.10), transparent 60%),
+    var(--bg);
+  color:var(--ink);
 }
 
-/* Центрированный контейнер + равные отступы */
-.container {
-    margin: 0 auto;
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: row;
-    gap: 1.2rem; /* одинаковое расстояние между элементами */
+.container.with-sidebar{
+  max-width:1200px; margin:0 auto; padding:24px 16px 64px;
+  display:grid; grid-template-columns: 1fr 320px; gap:16px;
+}
+.toolbar{
+  grid-column:1 / -1;
+  position:sticky; top:0; z-index:10; backdrop-filter: blur(6px);
+  display:flex; gap:12px; align-items:center; padding:12px; margin:-8px -8px 16px;
+  border-bottom:1px solid var(--border);
+  background: linear-gradient(180deg, rgba(15,17,21,.75), rgba(15,17,21,.55));
+}
+.toolbar h1{ font-size:18px; margin:0; font-weight:700; letter-spacing:.2px; }
+.spacer{ flex:1 }
+
+.main{ min-width:0; }
+.cards{ display:grid; grid-template-columns: repeat(12, 1fr); gap:16px; }
+.card{
+  grid-column: span 12; background:linear-gradient(180deg, #121620, #10141d);
+  border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px;
+}
+.card h2{ margin:0 0 12px; font-size:16px; font-weight:700; color:#dfe6f7; display:flex; align-items:center; gap:8px; }
+.grid{ display:grid; grid-template-columns: repeat(12, 1fr); gap:12px; }
+.field{ grid-column: span 12; display:flex; flex-direction:column; gap:6px; }
+.field.inline{ flex-direction:row; align-items:center; gap:10px; }
+.field label{ font-size:12px; color:var(--muted); letter-spacing:.3px; }
+.field input[type="text"], .field input[type="number"], .field textarea, .pill, select{
+  width:100%; background:var(--input); border:1px solid var(--input-border); color:var(--ink);
+  border-radius:12px; padding:10px 12px; outline:none; transition:.2s ease; min-height:38px;
+}
+.field textarea{ min-height:100px; resize:vertical; }
+.two{ grid-column: span 6; } .three{ grid-column: span 4; } .four{ grid-column: span 3; }
+.stack{ grid-column: span 12; }
+@media (max-width:1100px){ .container.with-sidebar{ grid-template-columns: 1fr; } .sidebar{ order:3 } }
+
+.kbd{ font:11px ui-monospace; background:#0a0d12; border:1px solid #1f2433; padding:2px 6px; border-radius:6px; color:#b6c2d9; }
+.tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#131a27; border:1px solid #2a3348; color:#cfe3ff; font-size:12px; }
+.tag .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent-2); box-shadow:0 0 0 3px rgba(34, 211, 238, .15); }
+
+.avatar{ display:flex; align-items:center; gap:14px; }
+.avatar .preview{
+  width:120px; height:120px; border-radius:16px; border:1px solid var(--input-border);
+  background:#0b0f15 center/cover no-repeat; box-shadow:var(--shadow);
+}
+.avatar small{ color:var(--muted); }
+
+/* Магия */
+.level-head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:12px 0 8px}
+.lvl-title{font-weight:700}
+.spell-line{
+  display:flex; gap:10px; align-items:flex-start; padding:8px 10px; margin-bottom:8px;
+  background:linear-gradient(180deg, #0d121a, #0b0f15); border:1px solid var(--input-border);
+  border-radius:12px; box-shadow:inset 0 1px 0 rgba(255,255,255,.03); transition:border-color .15s, box-shadow .15s, background .15s;
+}
+.spell-line:focus-within{ border-color:#3a4766; box-shadow:0 0 0 2px rgba(139,92,246,.18); background:linear-gradient(180deg, #101624, #0b0f15); }
+
+.combo{ position:relative; flex:1; }
+.combo .combo-input{
+  width:100%; background:transparent; border:none; outline:none; padding:0; min-height:24px;
+  color:var(--ink); font:inherit;
+}
+.combo .combo-list{
+  position:absolute; left:0; right:0; top:100%;
+  background:#0b0f15; border:1px solid var(--input-border);
+  border-radius:12px; margin-top:6px; max-height:240px; overflow:auto;
+  box-shadow:var(--shadow); z-index:20; display:none;
+}
+.combo.open .combo-list{ display:block; }
+.combo .combo-item{ padding:8px 10px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+.combo .combo-item:hover{ background:#0f1624; }
+.combo .muted{ color:var(--muted); font-size:12px; margin-left:auto; }
+
+.btn{ appearance:none; border:1px solid var(--input-border); background:linear-gradient(180deg, #1a2030, #141925);
+          color:var(--ink); padding:9px 14px; border-radius:12px; cursor:pointer; box-shadow:var(--shadow);
+          transition:.2s ease; font-weight:600; }
+.btn:hover{ transform: translateY(-1px); border-color:#36415a; }
+.btn.primary{ background: linear-gradient(180deg, #8b5cf6, #7c3aed); border-color:#7245ff; color:white; }
+.btn.ghost{ background:transparent; }
+.btn.success{ color:#c1c1c1; border:1px solid var(--input-border); background:linear-gradient(180deg, #14251f, #141925); border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap; }
+.btn.success:hover{ transform: translateY(-1px); }
+.spell-more-btn{ color:#c1c1c1; border:1px solid var(--input-border); background:linear-gradient(180deg, #1a2030, #141925); border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap; }
+.spell-del-btn{ color:#c1c1c1; border:1px solid var(--input-border); background:linear-gradient(180deg, #311a1a, #1f1414); border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap; }
+.spell-del-btn:hover{ border-color:#5b2a2a; }
+
+/* Детали заклинания */
+.spell-detail{
+  margin-top:8px; padding:10px; background:#0b0f15; border:1px solid var(--input-border);
+  border-radius:12px; display:none; width:100%;
+}
+.spell-detail.show{ display:block; }
+
+/* Форма бросков под заклинанием */
+.dice-panel{
+  margin-top:8px; padding:10px; background:#0b0f15; border:1px solid var(--input-border); border-radius:12px;
+}
+.dice-row{ display:flex; gap:8px; flex-wrap:wrap; }
+.dice-row .field{ flex:1 1 160px; }
+.dice-actions{ display:flex; gap:8px; margin-top:8px; }
+
+/* Сайдбар */
+.sidebar{
+  background:linear-gradient(180deg, #121620, #10141d);
+  border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px;
 }
 
-/* Заголовки */
-h1, h2, h3 {
-    font-weight: 600;
-    color: #4b3f35;
-    margin: 0; /* убираем разные браузерные отступы */
+/* ВНУТРЕННИЙ блок — «прилипает» к верху и сам скроллится */
+.sidebar-inner{
+  position: sticky;
+  top: 120px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
 }
 
-/* ===== Кнопки ===== */
-button, .btn {
-    display: inline-flex;
-    height: 44px; /* одинаковая высота */
-    min-width: 120px;
-    padding: 0 1.2rem;
-    background: linear-gradient(135deg, #ffda8f, #fbbf77);
-    color: #5b4332;
-    border-radius: 8px;
-    border: none;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.4s ease, transform 0.15s ease, box-shadow 0.3s ease;
-    text-decoration: none;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+.sidebar h3{ margin:4px 0 12px; font-size:14px; color:#dfe6f7; }
+.roll-history{ display:flex; flex-direction:column; gap:8px; }
+.roll-item{
+  border:1px solid var(--input-border); border-radius:10px; padding:8px;
+  background:linear-gradient(180deg, #0d121a, #0b0f15);
+}
+.roll-item .meta{ color:var(--muted); font-size:12px; margin-bottom:4px; }
+.roll-item .result{ font-weight:700; }
+
+.dice-panel input[type="number"] {
+  width: 100%;
+  background: var(--input);
+  border: 1px solid var(--input-border);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  transition: .2s ease;
+  min-height: 38px;
+  font: inherit;
 }
 
-button:hover, .btn:hover {
-    background: linear-gradient(135deg, #fbbf77, #ffda8f);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
-button:active, .btn:active {
-    transform: translateY(1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* ===== Поля ввода ===== */
-input, textarea, select {
-    width: 100%;
-    padding: 0.6rem;
-    border-radius: 6px;
-    border: 1px solid #d6cfc7;
-    background: #fff;
-    font-size: 1rem;
-    margin: 0; /* убираем разнородные отступы */
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-input:focus, textarea:focus, select:focus {
-    border-color: #fbbf77;
-    outline: none;
-    box-shadow: 0 0 8px rgba(251, 191, 119, 0.4);
-}
-
-/* ===== Ссылки ===== */
-a {
-    color: #d97706;
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-a:hover {
-    color: #b45309;
-}
-
-/* ===== Карточки ===== */
-.card {
-    background: #fff;
-    border-radius: 10px;
-    padding: 1.2rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-/* ===== Сообщения ===== */
-.alert {
-    padding: 0.8rem 1.2rem;
-    border-radius: 6px;
-    font-weight: 500;
-}
-
-.alert-success {
-    background-color: #e9f8ef;
-    color: #276749;
-}
-
-.alert-error {
-    background-color: #fdecea;
-    color: #b71c1c;
-}
-
-/* ===== Формы ===== */
-form {
-    display: flex;
-    flex-direction: row;
-    gap: 1rem; /* одинаковое расстояние между полями */
+.dice-panel input[type="number"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(139,92,246,.2);
 }
