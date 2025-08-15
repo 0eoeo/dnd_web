@@ -1,0 +1,152 @@
+<!doctype html>
+{% load static %}
+<html lang="ru">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Творчество кампании — Лор, Иллюстрации, Видео, Музыка</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+<header class="site-topbar">
+    <div class="topbar-inner"><a class="brand" href="/">DnD</a>
+        <nav class="topnav"><a class="topnav-link" href="/viewer">Лист персонажа</a> <a class="topnav-link" href="/art">Творчество</a>
+        </nav>
+    </div>
+</header>
+<div class="container with-sidebar">
+    <div class="toolbar"><h1>Творчество кампании</h1> <span class="tag"><span class="dot"></span> SHREK GAMES</span>
+        <div class="spacer"></div>
+        <a class="btn" href="#lore">Лор</a> <a class="btn" href="#images">Иллюстрации</a> <a class="btn" href="#video">Видео</a>
+        <a class="btn" href="#music">Музыка</a></div>
+    <div class="main">
+        <div class="cards">
+            text
+            <!-- Лор -->
+            <section id="lore" class="card" style="grid-column: span 12;">
+                <h2>Лор</h2>
+                <div class="grid">
+                    <div class="field">
+                        <label>Хронология</label>
+                        <p class="muted">Добавьте ключевые события кампании, важные даты и арки сюжета.</p>
+                    </div>
+                    <div class="field">
+                        <label>Места и регионы</label>
+                        <p>Опишите города, локации, фракции и их отношения.</p>
+                    </div>
+                    <div class="field">
+                        <label>Персонажи</label>
+                        <p>NPC, их мотивации и связи с героями.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Иллюстрации -->
+            <section id="images" class="card" style="grid-column: span 12;">
+                <h2>Иллюстрации</h2>
+                <div class="grid">
+                    <div class="field three">
+                        <label>Галерея</label>
+                        <div class="avatar">
+                            <div class="preview" style="background-image:url('{% static " img
+                            /placeholder-1.jpg" %}')">
+                        </div>
+                        <small class="muted">Добавьте обложки сцен, героев, артов монстров и предметов.</small>
+                    </div>
+                </div>
+                <div class="field three">
+                    <label>Арт</label>
+                    <div class="avatar">
+                        <div class="preview" style="background-image:url('{% static " img
+                        /placeholder-2.jpg" %}')">
+                    </div>
+                    <small class="muted">Поддерживайте визуальную стилистику мира и кампании.</small>
+                </div>
+        </div>
+        <div class="field three">
+            <label>Сцены</label>
+            <div class="avatar">
+                <div class="preview" style="background-image:url('{% static " img
+                /placeholder-3.jpg" %}')">
+            </div>
+            <small class="muted">Скриншоты сессий, карты, схемы боёв.</small>
+        </div>
+    </div>
+    <div class="field three">
+        <label>Концепты</label>
+        <div class="avatar">
+            <div class="preview" style="background-image:url('{% static " img
+            /placeholder-4.jpg" %}')">
+        </div>
+        <small class="muted">Ранние эскизы и визуальные эксперименты.</small>
+    </div>
+</div>
+</div>
+</section>
+
+<!-- Видео -->
+<section id="video" class="card" style="grid-column: span 12;">
+    <h2>Видео</h2>
+    <div class="grid">
+        <div class="field two">
+            <label>Трейлер сессии</label>
+            <div class="pill">
+                <video controls style="width:100%; border-radius:12px; outline:none; display:block; background:#000;">
+                    <source src="{% static 'media/sample.mp4' %}" type="video/mp4">
+                </video>
+            </div>
+        </div>
+        <div class="field two">
+            <label>Клипы</label>
+            <p class="muted">Добавьте лучшие моменты или записи стримов.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Музыка -->
+<section id="music" class="card" style="grid-column: span 12;">
+    <h2>Музыка</h2>
+    <div class="grid">
+        <div class="field two">
+            <label>Тема кампании</label>
+            <audio controls style="width:100%;">
+                <source src="{% static 'media/theme.mp3' %}" type="audio/mpeg">
+            </audio>
+        </div>
+        <div class="field two">
+            <label>Плейлист сессии</label>
+            <p class="muted">Соберите подборку треков для битв, путешествий и отдыха у костра.</p>
+        </div>
+    </div>
+</section>
+
+</div>
+</div>
+<aside class="sidebar">
+    <div class="sidebar-inner"><h3>Быстрые ссылки</h3>
+        <div class="roll-history">
+            <div class="roll-item">
+                <div class="meta">Раздел</div>
+                <div class="result"><a class="topnav-link" href="#lore">Лор</a></div>
+            </div>
+            <div class="roll-item">
+                <div class="meta">Раздел</div>
+                <div class="result"><a class="topnav-link" href="#images">Иллюстрации</a></div>
+            </div>
+            <div class="roll-item">
+                <div class="meta">Раздел</div>
+                <div class="result"><a class="topnav-link" href="#video">Видео</a></div>
+            </div>
+            <div class="roll-item">
+                <div class="meta">Раздел</div>
+                <div class="result"><a class="topnav-link" href="#music">Музыка</a></div>
+            </div>
+        </div>
+    </div>
+</aside>
+</div>
+<script>
+     (function(){ var path = location.pathname.replace(/\/+$/, '') || '/'; document.querySelectorAll('.topnav-link').forEach(function(a){ var norm = (a.getAttribute('href')||'').replace(/\/+$/, '') || '/'; if (norm === path) { a.classList.add('active'); a.setAttribute('aria-current','page'); } }); })();
+</script>
+</body>
+</html>

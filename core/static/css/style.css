@@ -28,9 +28,10 @@ body{
   max-width:1200px; margin:0 auto; padding:24px 16px 64px;
   display:grid; grid-template-columns: 1fr 320px; gap:16px;
 }
+
 .toolbar{
   grid-column:1 / -1;
-  position:sticky; top:0; z-index:10; backdrop-filter: blur(6px);
+  position:sticky; top:56px; z-index:10; backdrop-filter: blur(6px);
   display:flex; gap:12px; align-items:center; padding:12px; margin:-8px -8px 16px;
   border-bottom:1px solid var(--border);
   background: linear-gradient(180deg, rgba(15,17,21,.75), rgba(15,17,21,.55));
@@ -95,16 +96,30 @@ body{
 .combo .combo-item:hover{ background:#0f1624; }
 .combo .muted{ color:var(--muted); font-size:12px; margin-left:auto; }
 
-.btn{ appearance:none; border:1px solid var(--input-border); background:linear-gradient(180deg, #1a2030, #141925);
-          color:var(--ink); padding:9px 14px; border-radius:12px; cursor:pointer; box-shadow:var(--shadow);
-          transition:.2s ease; font-weight:600; }
+.btn{
+  appearance:none; border:1px solid var(--input-border); background:linear-gradient(180deg, #1a2030, #141925);
+  color:var(--ink); padding:9px 14px; border-radius:12px; cursor:pointer; box-shadow:var(--shadow);
+  transition:.2s ease; font-weight:600;
+}
 .btn:hover{ transform: translateY(-1px); border-color:#36415a; }
 .btn.primary{ background: linear-gradient(180deg, #8b5cf6, #7c3aed); border-color:#7245ff; color:white; }
 .btn.ghost{ background:transparent; }
-.btn.success{ color:#c1c1c1; border:1px solid var(--input-border); background:linear-gradient(180deg, #14251f, #141925); border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap; }
+.btn.success{
+  color:#c1c1c1; border:1px solid var(--input-border);
+  background:linear-gradient(180deg, #14251f, #141925);
+  border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap;
+}
 .btn.success:hover{ transform: translateY(-1px); }
-.spell-more-btn{ color:#c1c1c1; border:1px solid var(--input-border); background:linear-gradient(180deg, #1a2030, #141925); border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap; }
-.spell-del-btn{ color:#c1c1c1; border:1px solid var(--input-border); background:linear-gradient(180deg, #311a1a, #1f1414); border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap; }
+.spell-more-btn{
+  color:#c1c1c1; border:1px solid var(--input-border);
+  background:linear-gradient(180deg, #1a2030, #141925);
+  border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap;
+}
+.spell-del-btn{
+  color:#c1c1c1; border:1px solid var(--input-border);
+  background:linear-gradient(180deg, #311a1a, #1f1414);
+  border-radius:10px; padding:6px 10px; cursor:pointer; white-space:nowrap;
+}
 .spell-del-btn:hover{ border-color:#5b2a2a; }
 
 /* Детали заклинания */
@@ -131,7 +146,7 @@ body{
 /* ВНУТРЕННИЙ блок — «прилипает» к верху и сам скроллится */
 .sidebar-inner{
   position: sticky;
-  top: 120px;
+  top: 136px;
   max-height: calc(100vh - 24px);
   overflow: auto;
 }
@@ -142,7 +157,7 @@ body{
   border:1px solid var(--input-border); border-radius:10px; padding:8px;
   background:linear-gradient(180deg, #0d121a, #0b0f15);
 }
-.roll-item .meta{ color:var(--muted); font-size:12px; margin-bottom:4px; }
+.roll-item .meta{ color:#aab4c4; font-size:12px; margin-bottom:4px; }
 .roll-item .result{ font-weight:700; }
 
 .dice-panel input[type="number"] {
@@ -165,7 +180,7 @@ body{
 
 .roll-item.highlight {
   background: linear-gradient(180deg, #6d5b97, #543785);
-  transition: background 1s ease;
+  transition: background 1.5s ease;
 }
 
 /* Верхнее меню */
@@ -190,6 +205,10 @@ body{
   background: linear-gradient(180deg, #121620, #10141d);
   box-shadow: var(--shadow);
 }
+.brand:hover{
+  transform: translateY(-1px);
+  border-color:#36415a;
+}
 
 .topnav{ display: flex; gap: 6px; }
 
@@ -200,6 +219,7 @@ body{
   border: 1px solid var(--input-border);
   background: linear-gradient(180deg, #1a2030, #141925);
   transition: .2s ease;
+  min-width: 140px; /* чтобы вкладки в меню не «плясали» */
 }
 
 .topnav-link:hover{
@@ -218,6 +238,7 @@ body{
 /* Узкие экраны: ссылки растянуть и перенести вниз блока */
 @media (max-width: 640px){
   .topbar-inner{ flex-wrap: wrap; }
+  .brand{ margin-bottom: 6px; }
   .topnav{ width: 100%; }
   .topnav-link{ flex: 1 1 auto; text-align: center; }
 }

@@ -1,0 +1,82 @@
+<!doctype html>
+{% load static %}
+<html lang="ru">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>DnD</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+<header class="site-topbar">
+    <div class="topbar-inner"><a class="brand" href="/">DnD</a>
+        <nav class="topnav"><a class="topnav-link" href="/viewer">Лист персонажа</a> <a class="topnav-link" href="/art">Творчество</a>
+        </nav>
+    </div>
+</header>
+<div class="container with-sidebar">
+    <div class="toolbar"><h1>Добро пожаловать в кампанию</h1> <span class="tag"><span
+            class="dot"></span> SHREK GAMES</span>
+        <div class="spacer"></div>
+        <a class="btn primary" href="/viewer">Перейти к листу персонажа</a></div>
+    <div class="main">
+        <div class="cards">
+            <section class="card" style="grid-column: span 12;"><h2>О проекте</h2>
+                <p> Это ваш центр управления кампанией D&D: создавайте и редактируйте лист персонажа, сохраняйте магию,
+                    отслеживайте броски и погружайтесь в мир лора, иллюстраций, музыки и видео кампании. </p></section>
+            <section class="card two">
+                <h2>Быстрый старт</h2>
+                <div class="grid">
+                    <div class="field">
+                        <label>1. Откройте лист персонажа</label>
+                        <a class="btn" href="/viewer">Лист персонажа</a>
+                    </div>
+                    <div class="field">
+                        <label>2. Творчество и атмосфера</label>
+                        <a class="btn" href="/art">Творчество</a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card two">
+                <h2>Новости кампании</h2>
+                <p class="muted">Здесь можно разместить краткие апдейты: новые иллюстрации, музыка сессии, лор‑записи и
+                    важные ссылки.</p>
+                <div class="grid">
+                    <div class="field">
+                        <div class="tag"><span class="dot"></span> Обновление</div>
+                        <p>Добавлена подсветка новых бросков и меню навигации.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" style="grid-column: span 12;">
+                <h2>Полезные советы</h2>
+                <ul>
+                    <li>История бросков доступна в сайдбаре и подсвечивает новый бросок 2 секунды.</li>
+                    <li>Используйте быстрые кнопки в «Творчестве» для навигации по разделам.</li>
+                    <li>Лист персонажа поддерживает загрузку и сохранение PDF.</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+    <aside class="sidebar">
+        <div class="sidebar-inner"><h3>Навигация</h3>
+            <div class="roll-history">
+                <div class="roll-item">
+                    <div class="meta">Разделы</div>
+                    <div class="result"><a class="topnav-link" href="/viewer">Лист персонажа</a></div>
+                </div>
+                <div class="roll-item">
+                    <div class="meta">Разделы</div>
+                    <div class="result"><a class="topnav-link" href="/art">Творчество</a></div>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+<script>
+     (function(){ var path = location.pathname.replace(/\/+$/, '') || '/'; document.querySelectorAll('.topnav-link').forEach(function(a){ var norm = (a.getAttribute('href')||'').replace(/\/+$/, '') || '/'; if (norm === path) { a.classList.add('active'); a.setAttribute('aria-current','page'); } }); })();
+</script>
+</body>
+</html>
