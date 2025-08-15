@@ -162,3 +162,8 @@ body{
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(139,92,246,.2);
 }
+
+.roll-item.highlight {
+  background: linear-gradient(180deg, #6d5b97, #543785);
+  transition: background 1s ease;
+}

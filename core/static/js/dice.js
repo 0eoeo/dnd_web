@@ -8,7 +8,7 @@ export function loadHistory(){
   try{ return JSON.parse(localStorage.getItem(LS_HISTORY_KEY)||'[]'); }catch{ return []; }
 }
 export function saveHistory(list){
-  localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(list.slice(0,200)));
+  localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(list.slice(0,5)));
 }
 export function appendHistory(entry){
   const list = loadHistory();
@@ -35,13 +35,15 @@ function formatBreakdown(results, mod){
 /** === рендер истории === */
 function renderHistory(container){
   if(!container) return;
-  const list = loadHistory();
+  const list = loadHistory().slice(0, 5);
+
   container.innerHTML = '';
   if(!list.length){
     container.appendChild(el('div',{class:'muted'},'Пока пусто'));
     return;
   }
-  for(const it of list){
+
+  list.forEach((it, idx) => {
     const who = it.character || 'Безымянный';
     const spell = it.spell ? ` — ${it.spell}` : '';
     const top = `${who}${spell}`;
@@ -52,8 +54,17 @@ function renderHistory(container){
       el('div',{class:'result'}, line),
       breakdown
     );
+
+    // Если это первый элемент => он новый, подсвечиваем
+    if (idx === 0) {
+      item.classList.add('highlight');
+      setTimeout(() => {
+        item.classList.remove('highlight');
+      }, 1000);
+    }
+
     container.appendChild(item);
-  }
+  });
 }
 
 /** === обновление подписей характеристик в ПРОИЗВОЛЬНОЙ панели === */

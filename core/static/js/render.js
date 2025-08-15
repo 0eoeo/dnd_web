@@ -14,7 +14,7 @@ export function makeInput(name, label, isLong=false, layout='three'){
       el('div',{class:'preview', id:'avatarPreview', style:`background-image:url('data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 100 100&quot;><rect width=&quot;100&quot; height=&quot;100&quot; fill=&quot;%2310151f&quot;/><circle cx=&quot;50&quot; cy=&quot;38&quot; r=&quot;18&quot; fill=&quot;%232a3348&quot;/><rect x=&quot;20&quot; y=&quot;62&quot; width=&quot;60&quot; height=&quot;26&quot; rx=&quot;13&quot; fill=&quot;%232a3348&quot;/></svg>');`} ),
       el('div',{class:'meta'},
         el('label',{class:'btn ghost', for:'avatarFile'},'Выбрать файл'),
-        el('small',{},'PNG/JPG, сохранится в JSON как data URL')
+        el('small',{style:`padding-left: 10px;`},'PNG/JPG')
       ),
       el('input',{id:'avatarFile', type:'file', accept:'image/*', hidden:true})
     );
