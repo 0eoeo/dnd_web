@@ -2,19 +2,76 @@
 import { el } from './utils.js';
 import { getAbilityModifiers, getCharacterName } from './state.js';
 
-/** === история бросков (localStorage) === */
-const LS_HISTORY_KEY = 'dice_history_v1';
-export function loadHistory(){
-  try{ return JSON.parse(localStorage.getItem(LS_HISTORY_KEY)||'[]'); }catch{ return []; }
+/** === Серверные API и realtime === */
+const API_LIST_URL = '/api/rolls?limit=5';
+const API_CREATE_URL = '/api/rolls/create';
+const WS_PATH = '/ws/rolls';
+
+/** Загрузка последних N бросков с сервера */
+async function fetchServerHistory(limit = 5){
+  const res = await fetch(`/api/rolls?limit=${limit}`, { credentials: 'same-origin' });
+  if (!res.ok) return [];
+  const json = await res.json().catch(()=>({items:[]}));
+  return Array.isArray(json.items) ? json.items : [];
 }
-export function saveHistory(list){
-  localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(list.slice(0,5)));
+
+/** Отправка нового броска на сервер (остальное сделает WebSocket) */
+async function sendRollToServer(entry){
+  await fetch(API_CREATE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF() },
+    credentials: 'same-origin',
+    body: JSON.stringify(entry)
+  });
 }
-export function appendHistory(entry){
-  const list = loadHistory();
-  list.unshift({ ts: Date.now(), ...entry });
-  saveHistory(list);
-  renderHistory(document.querySelector('#diceSidebar .roll-history'));
+
+/** Подключение к WebSocket (с автопереподключением) */
+function connectRollsWS(onNewRoll){
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${proto}://${location.host}${WS_PATH}`;
+  let ws;
+
+  function open(){
+    ws = new WebSocket(url);
+    ws.onmessage = (ev)=>{
+      try{
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'roll' && msg.item) onNewRoll(msg.item);
+      }catch(e){}
+    };
+    ws.onclose = ()=> setTimeout(open, 1500);
+  }
+
+  open();
+  return ()=> { try{ ws && ws.close(); }catch(e){} };
+}
+
+/** === история бросков (сервер) — совместимые обёртки === */
+export async function loadHistory(){
+  // Возвращаем серверные данные в формате, совместимом с рендером
+  const items = await fetchServerHistory(5);
+  return items;
+}
+
+// Локальное хранение больше не используется, но оставляем функции для совместимости:
+export function saveHistory(_list){ /* no-op, теперь хранение на сервере */ }
+
+/** Раньше добавляли в localStorage — теперь шлём на сервер,
+    а обновление UI произойдёт от WebSocket-сообщения */
+export async function appendHistory(entry){
+  try{
+    await sendRollToServer({ ts: Date.now(), ...entry });
+  }catch(e){
+    // fallback: если сервер недоступен, можно (опционально) временно показать локально
+    const container = document.querySelector('#diceSidebar .roll-history');
+    if (container){
+      prependHistoryItem(container, {
+        ts: Date.now(),
+        ...entry
+      }, true);
+      trimHistory(container, 5);
+    }
+  }
 }
 
 /** === утилиты броска === */
@@ -32,38 +89,54 @@ function formatBreakdown(results, mod){
   return base;
 }
 
-/** === рендер истории === */
-function renderHistory(container){
-  if(!container) return;
-  const list = loadHistory().slice(0, 5);
+/** === DOM-хелперы истории === */
+function createHistoryItemNode(it, highlight = false){
+  const who = it.character || 'Безымянный';
+  const spell = it.spell ? ` — ${it.spell}` : '';
+  const top = `${who}${spell}`;
+  const line = `${it.expr} = ${it.total}`;
+  const breakdown = it.breakdown ? el('div',{class:'muted'}, it.breakdown) : null;
 
+  const item = el('div',{class:'roll-item'},
+    el('div',{class:'meta'}, top),
+    el('div',{class:'result'}, line),
+    breakdown
+  );
+
+  if (highlight){
+    item.classList.add('highlight');
+    setTimeout(()=> item.classList.remove('highlight'), 2000);
+  }
+  return item;
+}
+
+function prependHistoryItem(container, it, highlight=false){
+  const node = createHistoryItemNode(it, highlight);
+  container.prepend(node);
+  return node;
+}
+
+function trimHistory(container, limit){
+  const items = container.querySelectorAll('.roll-item');
+  for (let i = limit; i < items.length; i++){
+    items[i].remove();
+  }
+}
+
+/** === рендер истории === */
+async function renderHistory(container){
+  if(!container) return;
   container.innerHTML = '';
+
+  const list = await loadHistory(); // уже сервер
   if(!list.length){
     container.appendChild(el('div',{class:'muted'},'Пока пусто'));
     return;
   }
 
   list.forEach((it, idx) => {
-    const who = it.character || 'Безымянный';
-    const spell = it.spell ? ` — ${it.spell}` : '';
-    const top = `${who}${spell}`;
-    const line = `${it.expr} = ${it.total}`;
-    const breakdown = it.breakdown ? el('div',{class:'muted'}, it.breakdown) : null;
-    const item = el('div',{class:'roll-item'},
-      el('div',{class:'meta'}, top),
-      el('div',{class:'result'}, line),
-      breakdown
-    );
-
-    // Если это первый элемент => он новый, подсвечиваем
-    if (idx === 0) {
-      item.classList.add('highlight');
-      setTimeout(() => {
-        item.classList.remove('highlight');
-      }, 1000);
-    }
-
-    container.appendChild(item);
+    const node = createHistoryItemNode(it, idx === 0);
+    container.appendChild(node);
   });
 }
 
@@ -135,7 +208,15 @@ function renderFreeDicePanel(container){
   // первичная отрисовка истории
   renderHistory(historyList);
 
-  rollBtn.addEventListener('click', ()=>{
+  // realtime подписка
+  connectRollsWS((item)=>{
+    // Вставляем пришедший от сервера новый бросок в UI с подсветкой
+    prependHistoryItem(historyList, item, true);
+    trimHistory(historyList, 5);
+  });
+
+  // действие «Бросить»
+  rollBtn.addEventListener('click', async ()=>{
     const sides = parseSides(dieSelect.value);                     // d20 -> 20
     const count = Math.max(1, parseInt(countInput.value,10) || 1); // сколько кубиков
     const abKey = abSelect.value;
@@ -147,7 +228,8 @@ function renderFreeDicePanel(container){
     const breakdown = formatBreakdown(rolls, abMod);
     const expr = `${count}d${sides}${abMod? (abMod>0?`+${abMod}`:`${abMod}`):''}`;
 
-    appendHistory({
+    // Отправляем на сервер — новый элемент появится у всех по WebSocket
+    await appendHistory({
       character: getCharacterName(),
       spell: '',
       expr,
@@ -218,7 +300,7 @@ export function openDiceForSpell(spell, mount){
 
   mount.appendChild(panel);
 
-  rollBtn.addEventListener('click', ()=>{
+  rollBtn.addEventListener('click', async ()=>{
     const sides = parseSides(dieSelect.value);
     const count = Math.max(1, parseInt(countInput.value,10) || 1);
     const abKey = abSelect.value;
@@ -237,7 +319,7 @@ export function openDiceForSpell(spell, mount){
     const breakdown = formatBreakdown(rolls, abMod);
     const expr = `${count}d${sides}${abMod? (abMod>0?`+${abMod}`:`${abMod}`):''}`;
 
-    appendHistory({
+    await appendHistory({
       character: getCharacterName(),
       spell:     spell?.name || '',
       expr,

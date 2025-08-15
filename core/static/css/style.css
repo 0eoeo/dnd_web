@@ -167,3 +167,57 @@ body{
   background: linear-gradient(180deg, #6d5b97, #543785);
   transition: background 1s ease;
 }
+
+/* Верхнее меню */
+.site-topbar{
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(15,17,21,.85), rgba(15,17,21,.65));
+}
+
+.topbar-inner{
+  max-width: 1200px; margin: 0 auto; padding: 10px 16px;
+  display: flex; align-items: center; gap: 16px;
+}
+
+.brand{
+  display:inline-flex; align-items:center; justify-content:center;
+  font-weight: 800; letter-spacing:.3px;
+  color: var(--ink); text-decoration: none;
+  min-width: 36px; height: 36px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: linear-gradient(180deg, #121620, #10141d);
+  box-shadow: var(--shadow);
+}
+
+.topnav{ display: flex; gap: 6px; }
+
+.topnav-link{
+  display:inline-flex; align-items:center; justify-content:center;
+  height: 34px; padding: 0 12px; border-radius: 10px;
+  color: var(--ink); text-decoration: none; font-weight: 600;
+  border: 1px solid var(--input-border);
+  background: linear-gradient(180deg, #1a2030, #141925);
+  transition: .2s ease;
+}
+
+.topnav-link:hover{
+  transform: translateY(-1px);
+  border-color: #36415a;
+}
+
+/* Активная вкладка — акцентная кнопка */
+.topnav-link.active{
+  background: linear-gradient(180deg, var(--accent), #7c3aed);
+  border-color: #7245ff;
+  color: white;
+  box-shadow: var(--shadow);
+}
+
+/* Узкие экраны: ссылки растянуть и перенести вниз блока */
+@media (max-width: 640px){
+  .topbar-inner{ flex-wrap: wrap; }
+  .topnav{ width: 100%; }
+  .topnav-link{ flex: 1 1 auto; text-align: center; }
+}

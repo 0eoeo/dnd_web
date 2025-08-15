@@ -19,6 +19,8 @@ const btnSave = document.getElementById('btnSave');
 
 let currentSheetId = null;
 
+// Удалено: «голый» POST на /api/rolls/create с несуществующей переменной entry
+
 inputPdf.addEventListener('change', async (e)=>{
   const f = e.target.files?.[0];
   if(!f) return;
@@ -28,7 +30,7 @@ inputPdf.addEventListener('change', async (e)=>{
 sheetSelect.addEventListener('change', async ()=>{
   const id = sheetSelect.value;
   if(!id) return;
-  const res = await fetch(window.API.getSheet(id));
+  const res = await fetch(window.API.getSheet(id), { credentials:'same-origin' });
   if(!res.ok){ alert('Не удалось загрузить лист'); return; }
   const item = await res.json();
   currentSheetId = item.id;
@@ -42,6 +44,7 @@ btnSave.addEventListener('click', async ()=>{
     const res = await fetch(window.API.updateSheet(currentSheetId), {
       method: 'PATCH',
       headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF() },
+      credentials: 'same-origin',
       body: JSON.stringify({ data: dataToSave })
     });
     if (!res.ok) { alert('Не удалось сохранить лист'); return; }
@@ -49,6 +52,7 @@ btnSave.addEventListener('click', async ()=>{
     const res = await fetch(window.API.createSheet, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF() },
+      credentials: 'same-origin',
       body: JSON.stringify({ name: 'Лист без названия', data: dataToSave })
     });
     if (!res.ok) { alert('Не удалось создать лист'); return; }
@@ -57,7 +61,7 @@ btnSave.addEventListener('click', async ()=>{
   }
 
   if (currentSheetId) {
-    const r2 = await fetch(window.API.getSheet(currentSheetId));
+    const r2 = await fetch(window.API.getSheet(currentSheetId), { credentials:'same-origin' });
     if (r2.ok) {
       const item = await r2.json();
       if (item && item.data) await renderFormFromJson(item.data);
@@ -72,7 +76,12 @@ btnSave.addEventListener('click', async ()=>{
 async function uploadPdfToServer(file){
   const fd = new FormData();
   fd.append('file', file);
-  const res = await fetch(window.API.uploadPdf, { method:'POST', headers: { 'X-CSRFToken': CSRF() }, body: fd });
+  const res = await fetch(window.API.uploadPdf, {
+    method:'POST',
+    headers: { 'X-CSRFToken': CSRF() },
+    credentials: 'same-origin',
+    body: fd
+  });
   if(!res.ok){ alert('Не удалось распарсить PDF'); return; }
   const payload = await res.json(); // {id, name, data}
   currentSheetId = payload.id || null;
@@ -82,7 +91,7 @@ async function uploadPdfToServer(file){
 }
 
 async function loadSheets(){
-  const res = await fetch(window.API.listSheets);
+  const res = await fetch(window.API.listSheets, { credentials:'same-origin' });
   if(!res.ok) return;
   const items = await res.json();
   const cur = sheetSelect.value;

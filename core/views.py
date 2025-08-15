@@ -2,10 +2,14 @@ import json
 from pathlib import Path
 
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpRequest, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404, render
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+import json
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.utils.timezone import now
+from .models import Roll
 
 from .config import SPELLS
 from .models import CharacterSheet
@@ -48,6 +52,38 @@ def _parse_payload(request):
 @ensure_csrf_cookie
 def viewer(request):
     return render(request, "viewer.html")
+
+@ensure_csrf_cookie
+def home(request: HttpRequest) -> HttpResponse:
+    """
+    Главная страница сайта (/) — обзор проекта, быстрые ссылки.
+    Шаблон: templates/home.html
+    """
+    ctx = {
+        # при необходимости прокинь динамические данные
+        "page": "home",
+        "title": "DnD — мир приключений",
+    }
+    return render(request, "home.html", ctx)
+
+@ensure_csrf_cookie
+def art(request: HttpRequest) -> HttpResponse:
+    """
+    Страница 'Творчество' (/art) — разделы: Лор, Иллюстрации, Видео, Музыка.
+    Шаблон: templates/art.html
+    """
+    ctx = {
+        "page": "art",
+        "title": "Творчество кампании — Лор, Иллюстрации, Видео, Музыка",
+        # Пример структуры для будущей динамики, если захочешь подгружать данные из БД/файлов:
+        "sections": [
+            {"id": "lore", "name": "Лор"},
+            {"id": "images", "name": "Иллюстрации"},
+            {"id": "video", "name": "Видео"},
+            {"id": "music", "name": "Музыка"},
+        ],
+    }
+    return render(request, "art.html", ctx)
 
 
 @require_http_methods(["GET", "POST"])
@@ -162,3 +198,49 @@ def spell_detail_view(request, slug: str):
         return HttpResponseBadRequest("slug required")
     html = get_spell_detail(slug)  # <- твоя функция из сообщения
     return JsonResponse({"slug": slug, "html": html})
+
+@require_http_methods(["GET"])
+def api_rolls(request):
+    limit = int(request.GET.get('limit', 50))
+    limit = max(1, min(limit, 200))
+    data = [r.as_dict() for r in Roll.objects.all()[:limit]]
+    return JsonResponse({"items": data})
+
+@require_http_methods(["POST"])
+def api_roll_create(request):
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    expr = str(payload.get("expr", "")).strip()
+    total = payload.get("total")
+    breakdown = str(payload.get("breakdown", "")).strip()
+    character = str(payload.get("character", "")).strip()
+    spell = str(payload.get("spell", "")).strip()
+
+    if not expr or not isinstance(total, int):
+        return HttpResponseBadRequest("expr and total required")
+
+    r = Roll.objects.create(
+        expr=expr,
+        total=total,
+        breakdown=breakdown,
+        character=character,
+        spell=spell,
+        ip=(request.META.get('REMOTE_ADDR') or None),
+    )
+
+    item = r.as_dict()
+    # уведомим по WebSocket (если Channels настроен)
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "rolls", {"type": "roll.created", "item": item}
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({"ok": True, "item": item}, status=201)
