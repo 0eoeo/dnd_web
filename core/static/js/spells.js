@@ -3,6 +3,88 @@ import { el, normName } from './utils.js';
 import { getSpellsCache, loadSpells, findSpellBySlugOrName, fetchSpellDetail } from './spells_data.js';
 import { openDiceForSpell } from './dice.js';
 
+// === НОВОЕ: помощники для слотов и долгого отдыха ===
+function getLevelFromSlotsName(n){
+  const m = /^Slots(?:Total|Remaining)\s+(\d+)$/.exec(n);
+  if(!m) return null;
+  const id = Number(m[1]);
+  const lvl = id - 18;
+  return (lvl>=1 && lvl<=9) ? lvl : null;
+}
+
+function getSlotIdsForLevel(lvl){
+  // Ваша схема: N = 18 + lvl
+  const N = 18 + lvl;
+  return {
+    totalName: `SlotsTotal ${N}`,
+    remainingName: `SlotsRemaining ${N}`,
+  };
+}
+
+function getInputByDataName(name){
+  return document.querySelector(`[data-name="${CSS.escape(name)}"]`);
+}
+
+function getIntValueFromDataName(name){
+  const el = getInputByDataName(name);
+  if(!el) return null;
+  const n = parseInt(String(el.value || '').trim(), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function setValueByDataName(name, value, fireEvents=true){
+  const el = getInputByDataName(name);
+  if(!el) return;
+  el.value = String(value);
+  if (fireEvents){
+    el.dispatchEvent(new Event('input', { bubbles:true }));
+    el.dispatchEvent(new Event('change', { bubbles:true }));
+  }
+}
+
+// === КНОПКА «Долгий отдых» ===
+// Рендерится отдельно (см. экспорт insertLongRestButton ниже)
+export function handleLongRest(){
+  // 1) Восстановить текущие хиты до максимума
+  const hpMaxEl = document.querySelector('#f_HPMax');
+  const hpCurEl = document.querySelector('#f_HPCurrent');
+  if (hpMaxEl && hpCurEl){
+    const max = parseInt(String(hpMaxEl.value||'').trim(),10);
+    if (Number.isFinite(max)){
+      hpCurEl.value = String(max);
+      hpCurEl.dispatchEvent(new Event('input',{bubbles:true}));
+      hpCurEl.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+  }
+
+  // 2) Восстановить все ячейки 1–9 уровней: осталось = всего
+  for(let lvl=1; lvl<=9; lvl++){
+    const { totalName, remainingName } = getSlotIdsForLevel(lvl);
+    const total = getIntValueFromDataName(totalName);
+    if (total != null){
+      setValueByDataName(remainingName, total);
+    }
+  }
+
+  // 3) По желанию можно обнулить временные хиты
+  // const hpTemp = document.querySelector('#f_HPTemp');
+  // if (hpTemp){ hpTemp.value = '0'; hpTemp.dispatchEvent(new Event('input',{bubbles:true})); hpTemp.dispatchEvent(new Event('change',{bubbles:true})); }
+
+  // 4) Мини-тост
+  try{
+    const toast = document.createElement('div');
+    toast.textContent = 'Долгий отдых: хиты и ячейки восстановлены';
+    toast.className = 'toast success';
+    Object.assign(toast.style, {
+      position:'fixed', right:'16px', bottom:'16px',
+      background:'#1e293b', color:'#fff', padding:'10px 14px',
+      borderRadius:'6px', boxShadow:'0 4px 12px rgba(0,0,0,.2)', zIndex:9999
+    });
+    document.body.appendChild(toast);
+    setTimeout(()=> toast.remove(), 2400);
+  }catch(_){}
+}
+
 export function slotLevelFromName(n){
   const m = /^Slots(?:Total|Remaining)\s+(\d+)$/.exec(n);
   if(!m) return null;
@@ -91,6 +173,7 @@ export function makeSpellLine(name, value){
         hidden.value = s.slug;
         combo.classList.remove('open');
         // свернуть деталь
+        const hadOpen = detailBox.classList.contains('show');
         detailBox.classList.remove('show');
         detailBox.innerHTML = "";
         moreBtn.textContent = 'Подробнее';
@@ -124,6 +207,20 @@ export function makeSpellLine(name, value){
   const delBtn    = el('button',{class:'spell-del-btn',  type:'button'}, 'Удалить');
   const detailBox = el('div',{class:'spell-detail'});
 
+  // === НОВОЕ: определение уровня слота для этой строки
+  // Имя поля (data-name) формата "Spells XXX", где XXX косвенно связан с уровнем через parseMagic/infer.
+  // Здесь возьмем простой способ: вычислим уровень по DOM-иерархии (по контейнеру id="spellbox-l{lvl}"), который создается в renderMagicCard.
+  // Если строка находится внутри #spellbox-l{lvl}, будем считать, что уровень = {lvl}.
+  function getLevelForThisSpellLine(){
+    const box = wrap.closest('[id^="spellbox-l"]');
+    if (!box) return null;
+    const m = /spellbox-l(\d+)/.exec(box.id);
+    if (!m) return null;
+    const lvl = parseInt(m[1],10);
+    return Number.isFinite(lvl) ? lvl : null;
+  }
+
+  // === Логика на кнопку "Использовать": уменьшить слоты (если это ур.>=1) и открыть/закрыть панель
   diceBtn.addEventListener('click', ()=>{
     const isOpen = diceBtn.dataset.open === '1';
     if (isOpen){
@@ -198,8 +295,8 @@ export function renderMagicCard(magic){
 
     if (lvl >= 1) {
       const N = 18 + lvl;
-      grid.appendChild(fieldInput(`SlotsTotal ${N}`,   `Ячейки ур.${lvl} — всего`, 'two', false, slots.total?.value || ''));
-      grid.appendChild(fieldInput(`SlotsRemaining ${N}`, `Ячейки ур.${lvl} — осталось`, 'two', false, slots.remaining?.value || ''));
+      grid.appendChild(fieldInput(`SlotsTotal ${N}`,    `Ячейки ур.${lvl} — всего`,   'two', false, slots.total?.value || ''));
+      grid.appendChild(fieldInput(`SlotsRemaining ${N}`,`Ячейки ур.${lvl} — осталось`,'two', false, slots.remaining?.value || ''));
     }
 
     const spellBox = el('div',{class:'stack', id:`spellbox-l${lvl}`});
@@ -224,4 +321,32 @@ export function renderMagicCard(magic){
   }
 
   return card;
+}
+
+// === НОВОЕ: экспорт рендера кнопки долгого отдыха в сайдбаре над «Произвольным броском»
+export function insertLongRestButton(){
+  // diceSidebar существует в шаблоне как aside.sidebar > #diceSidebar
+  const sidebar = document.getElementById('diceSidebar');
+  if (!sidebar) return;
+
+  // Ищем место: верх сайдбара, над панелями броска/истории
+  if (sidebar.querySelector('#btnLongRest')) return; // уже вставлено
+
+  const holder = document.createElement('div');
+  holder.className = 'long-rest-holder';
+  holder.style.display = 'flex';
+  holder.style.gap = '8px';
+  holder.style.marginBottom = '12px';
+
+  const btn = document.createElement('button');
+  btn.id = 'btnLongRest';
+  btn.className = 'btn';
+  btn.type = 'button';
+  btn.textContent = 'Долгий отдых';
+
+  btn.addEventListener('click', handleLongRest);
+
+  holder.appendChild(btn);
+  // Вставляем в начало сайдбара
+  sidebar.prepend(holder);
 }

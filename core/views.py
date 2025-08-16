@@ -12,12 +12,15 @@ from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 import json
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.utils.timezone import now
-from .models import Roll, LoreComment, LoreTopic, MediaAsset, LoreArticleComment, LoreArticle, LoreArticleImage, \
-    SpellCache
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
 
+from .models import Roll, LoreComment, LoreTopic, MediaAsset, LoreArticleComment, LoreArticle, LoreArticleImage, \
+    SpellCache, MediaFolder, LoreFolder
 from .config import SPELLS
 from .models import CharacterSheet
 from .extract_pdf_form_fields import extract_form_fields  # проверь путь
+from .serializers import MediaFolderSerializer, LoreFolderSerializer
 from .utils import fetch_spell_html_via_process
 
 
@@ -269,9 +272,12 @@ def api_roll_create(request):
 def api_media_list_create(request: HttpRequest) -> JsonResponse:
     if request.method == "GET":
         kind = request.GET.get("kind")
+        folder_id = request.GET.get("folder_id")  # ⬅️
         qs = MediaAsset.objects.all()
         if kind in (MediaAsset.MEDIA_IMAGE, MediaAsset.MEDIA_AUDIO, MediaAsset.MEDIA_VIDEO):
             qs = qs.filter(kind=kind)
+        if folder_id:
+            qs = qs.filter(folder_id=folder_id)    # ⬅️
         limit = int(request.GET.get("limit", "50"))
         limit = max(1, min(limit, 200))
         items = [m.as_dict() for m in qs[:limit]]
@@ -282,9 +288,17 @@ def api_media_list_create(request: HttpRequest) -> JsonResponse:
     kind = request.POST.get("kind")
     title = (request.POST.get("title") or "").strip()
     description = (request.POST.get("description") or "").strip()
+    folder_id = request.POST.get("folder_id")  # ⬅️
 
     if not f or kind not in (MediaAsset.MEDIA_IMAGE, MediaAsset.MEDIA_AUDIO, MediaAsset.MEDIA_VIDEO):
         return HttpResponseBadRequest("file and valid kind required")
+
+    folder = None
+    if folder_id:
+        try:
+            folder = MediaFolder.objects.get(pk=folder_id)
+        except MediaFolder.DoesNotExist:
+            folder = None
 
     asset = MediaAsset.objects.create(
         author=request.user if request.user.is_authenticated else None,
@@ -292,17 +306,14 @@ def api_media_list_create(request: HttpRequest) -> JsonResponse:
         file=f,
         title=title,
         description=description,
+        folder=folder,  # ⬅️ привязка к папке
     )
     item = asset.as_dict()
-
-    # Realtime: уведомление в группу "art" (опционально)
     try:
         from asgiref.sync import async_to_sync
         from channels.layers import get_channel_layer
         channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "art", {"type": "media.created", "item": item}
-        )
+        async_to_sync(channel_layer.group_send)("art", {"type": "media.created", "item": item})
     except Exception:
         pass
 
@@ -319,31 +330,49 @@ def api_media_detail(request: HttpRequest, pk: int) -> JsonResponse:
 
 # ===== Articles =====
 
+# ===== Articles =====
 @require_http_methods(["GET", "POST"])
 def api_articles_list_create(request: HttpRequest) -> JsonResponse:
     if request.method == "GET":
         limit = int(request.GET.get("limit", "50"))
         limit = max(1, min(limit, 200))
-        items = [a.as_dict() for a in LoreArticle.objects.all()[:limit]]
+        qs = LoreArticle.objects.all()
+
+        # ⬇️ ФИЛЬТР ПО ПАПКЕ
+        folder_id = request.GET.get("folder_id")
+        if folder_id:
+            qs = qs.filter(folder_id=folder_id)
+
+        items = [a.as_dict() for a in qs[:limit]]
         return JsonResponse({"items": items})
 
-    # POST multipart: title, excerpt?, content, cover?, gallery[]
+    # POST multipart: title, excerpt?, content, cover?, gallery[], folder_id?
     if request.content_type and request.content_type.startswith("multipart/form-data"):
         title = (request.POST.get("title") or "").strip()
         excerpt = (request.POST.get("excerpt") or "").strip()
         content = (request.POST.get("content") or "").strip()
+        folder_id = request.POST.get("folder_id")  # ⬅️ ВАЖНО
         cover: UploadedFile | None = request.FILES.get("cover")
         gallery_files: List[UploadedFile] = request.FILES.getlist("gallery")
 
         if not title or not content:
             return HttpResponseBadRequest("title and content required")
 
+        # найдём папку, если указана; если модели нет поля folder — см. примечание ниже
+        folder = None
+        if folder_id:
+            try:
+                folder = LoreFolder.objects.get(pk=folder_id)
+            except LoreFolder.DoesNotExist:
+                folder = None
+
         with transaction.atomic():
             article = LoreArticle.objects.create(
                 title=title,
                 excerpt=excerpt,
                 content=content,
-                author=request.user if request.user.is_authenticated else None
+                author=request.user if request.user.is_authenticated else None,
+                folder=folder,  # ⬅️ привязка к папке
             )
             if cover:
                 article.cover = cover
@@ -353,7 +382,7 @@ def api_articles_list_create(request: HttpRequest) -> JsonResponse:
                 LoreArticleImage.objects.create(article=article, image=f)
 
         item = article.as_dict()
-        _ws_notify("art", "article", item)  # realtime
+        _ws_notify("art", "article", item)
         return JsonResponse({"ok": True, "item": item}, status=201)
 
     return HttpResponseBadRequest("multipart/form-data required")
@@ -443,3 +472,27 @@ def _ws_notify_silent(group: str, msg_type: str, item: dict) -> None:
             async_to_sync(ch.group_send)(group, {"type": f"{msg_type}", "item": item})
     except Exception:
         pass
+
+class LoreFolderListCreate(generics.ListCreateAPIView):
+    queryset = LoreFolder.objects.all().order_by('title')
+    serializer_class = LoreFolderSerializer
+    permission_classes = [permissions.AllowAny]
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+
+class LoreFolderDestroy(generics.DestroyAPIView):
+    queryset = LoreFolder.objects.all()
+    serializer_class = LoreFolderSerializer
+    permission_classes = [permissions.AllowAny]
+
+class MediaFolderListCreate(generics.ListCreateAPIView):
+    queryset = MediaFolder.objects.all().order_by('title')
+    serializer_class = MediaFolderSerializer
+    permission_classes = [permissions.AllowAny]
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
+
+class MediaFolderDestroy(generics.DestroyAPIView):
+    queryset = MediaFolder.objects.all()
+    serializer_class = MediaFolderSerializer
+    permission_classes = [permissions.AllowAny]

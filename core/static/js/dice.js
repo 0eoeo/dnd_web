@@ -173,10 +173,11 @@ async function renderHistory(container){
     return;
   }
 
-  list.forEach((it, idx) => {
-    const node = createHistoryItemNode(it, idx === 0);
-    container.appendChild(node);
-  });
+  list.forEach((it) => {
+   // при первичной отрисовке ИСТОРИИ — без подсветки
+   const node = createHistoryItemNode(it, false);
+   container.appendChild(node);
+ });
 }
 
 /* === обновление подписей характеристик в ПРОИЗВОЛЬНОЙ панели === */

@@ -1,556 +1,307 @@
-<!-- ВАШ ТЕКУЩИЙ ШАБЛОН art.html — добавлены кнопки удаления и подтверждение -->
 <!doctype html>
 {% load static %}
 <html lang="ru">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Творчество кампании — Лор, Иллюстрации, Видео, Музыка</title>
-  <link rel="stylesheet" href="{% static 'css/style.css' %}">
-  <style>
-    /* Специфика «Лор как статьи» */
-    .articles{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
-    .article-card{
-      grid-column:span 12;
-      background:linear-gradient(180deg, #121620, #10141d);
-      border:1px solid var(--border); border-radius:var(--radius);
-      box-shadow:var(--shadow); overflow:hidden;
-    }
-    .article-cover{ display:block; width:100%; height:220px; object-fit:cover; background:#0b0f15; }
-    .article-body{ padding:16px; }
-    .article-title{ margin:0 0 8px; font-size:18px; font-weight:800; color:#dfe6f7; }
-    .article-meta{ display:flex; gap:12px; align-items:center; color:var(--muted); font-size:12px; margin-bottom:10px; }
-    .article-excerpt{ color:#cbd5e1; margin:0 0 12px; }
-    .article-actions{ display:flex; gap:8px; }
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Творчество кампании — Лор, Иллюстрации, Видео, Музыка</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* Специфика «Лор как статьи» */
+        .articles{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; margin-top: 10px;}
+        .article-card{
+          grid-column:span 12;
+          border:1px solid var(--border); border-radius:var(--radius);
+          box-shadow:var(--shadow); overflow:hidden;
+        }
+        .article-cover{ display:block; width:100%; height:220px; object-fit:cover; background:#0b0f15; }
+        .article-body{ padding:16px; }
+        .article-title{ margin:0 0 8px; font-size:18px; font-weight:800; }
+        .article-meta{ display:flex; gap:12px; align-items:center; color:var(--muted); font-size:12px; margin-bottom:10px; }
+        .article-excerpt{ margin:0 0 12px; }
+        .article-actions{ display:flex; gap:8px; }
 
-    /* Просмотр одной статьи */
-    .article-view .article-title{ font-size:22px; }
-    .article-content{ color:#dbe6ff; line-height:1.6; }
-    .article-gallery{ margin-top:12px; display:grid; grid-template-columns:repeat(12,1fr); gap:8px; }
-    .article-gallery img{ grid-column:span 6; width:100%; border-radius:12px; }
-    @media (max-width:720px){ .article-gallery img{ grid-column:span 12; } }
+        /* Просмотр одной статьи */
+        .article-view .article-title{ font-size:22px; }
+        .article-content{ line-height:1.6; }
+        .article-gallery{ margin-top:12px; display:grid; grid-template-columns:repeat(12,1fr); gap:8px; }
+        .article-gallery img{ grid-column:span 6; width:100%; border-radius:12px; }
+        @media (max-width:720px){ .article-gallery img{ grid-column:span 12; } }
 
-    /* Комментарии */
-    .comments{ margin-top:16px; }
-    .comment-item{ border:1px solid var(--border-2); border-radius:10px; padding:10px; background:linear-gradient(180deg, #0d121a, #0b0f15); }
-    .comment-meta{ color:var(--muted); font-size:12px; margin-bottom:6px; }
-    .comment-form .btn{ align-self:flex-start; }
+        /* Комментарии */
+        .comments{ margin-top:16px; }
+        .comment-item{ border:1px solid var(--border-2); border-radius:10px; padding:10px; }
+        .comment-meta{ color:var(--muted); font-size:12px; margin-bottom:6px; }
+        .comment-form .btn{ align-self:flex-start; }
 
-    /* Редактор статьи */
-    .editor{ background:linear-gradient(180deg, #121620, #10141d); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:16px; }
-    .editor-row{ display:grid; grid-template-columns:repeat(12,1fr); gap:12px; }
-    .editor .field{ grid-column:span 12; }
-    .editor .field.two{ grid-column:span 6; }
-    .editor .gallery-uploader{ display:flex; gap:8px; flex-wrap:wrap; }
-    .thumb{ width:96px; height:72px; border-radius:10px; border:1px solid var(--border-2); background:#0b0f15 center/cover no-repeat; }
+        /* Редактор статьи */
+        .editor-row{ display:grid; grid-template-columns:repeat(12,1fr); gap:12px; }
+        .editor .field{ grid-column:span 12; }
+        .editor .field.two{ grid-column:span 6; }
+        .editor .gallery-uploader{ display:flex; gap:8px; flex-wrap:wrap; }
+        .thumb{ width:96px; height:72px; border-radius:10px; border:1px solid var(--border-2); background:#0b0f15 center/cover no-repeat; }
 
-    /* Кнопки опасных действий */
-    .btn.danger{
-      color:#fff;
-      background:linear-gradient(180deg, #ef4444, #b91c1c);
-      border-color:#b91c1c;
-    }
-    .btn.danger:hover{ transform:translateY(-1px); border-color:#991b1b; }
-  </style>
+        /* Кнопки опасных действий */
+        .btn.danger{
+          color:#fff;
+          background:linear-gradient(180deg, #ef4444, #b91c1c);
+          border-color:#b91c1c;
+        }
+        .btn.danger:hover{ transform:translateY(-1px); border-color:#991b1b; }
+
+        /* Папки */
+        .folders { margin-bottom:16px; }
+        .folder-card {
+          padding:8px 12px;
+          border:1px solid var(--border-2);
+          border-radius:10px;
+          margin-bottom:6px;
+          cursor:pointer;
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+        }
+        .folder-actions { display:flex; gap:6px; }
+    </style>
 </head>
 <body>
 <header class="site-topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="/">DnD</a>
-    <nav class="topnav">
-      <a class="topnav-link" href="/viewer">Лист персонажа</a>
-      <a class="topnav-link" href="/art" aria-current="page">Творчество</a>
-    </nav>
-  </div>
+    <div class="topbar-inner">
+        <a class="brand" href="/">DnD</a>
+        <nav class="topnav">
+            <a class="topnav-link" href="/viewer">Лист персонажа</a>
+            <a class="topnav-link" href="/art" aria-current="page">Творчество</a>
+        </nav>
+    </div>
 </header>
 
 <div class="container with-sidebar">
-  <div class="toolbar">
-    <h1>Творчество кампании</h1>
-    <span class="tag"><span class="dot"></span> SHREK GAMES</span>
-    <div class="spacer"></div>
-    <button class="btn" data-jump="#lore">Лор</button>
-    <button class="btn" data-jump="#images">Иллюстрации</button>
-    <button class="btn" data-jump="#video">Видео</button>
-    <button class="btn" data-jump="#music">Музыка</button>
-  </div>
-
-  <div class="main">
-    <!-- ЛОР -->
-    <section id="tab-lore" class="tab-panel active" role="tabpanel">
-      <!-- Редактор новой статьи -->
-      <section class="editor card">
-        <h2>Новая статья</h2>
-        <form id="articleForm" class="editor-row">
-          <div class="field"><label>Заголовок</label><input type="text" name="title" placeholder="Например, История города Уотервип" required></div>
-          <div class="field"><label>Краткое описание (для списка)</label><input type="text" name="excerpt" placeholder="1–2 предложения, чтобы зацепить читателя"></div>
-          <div class="field"><label>Содержимое статьи</label><textarea name="content" placeholder="Поддерживаются абзацы и базовая разметка" required></textarea></div>
-          <div class="field two"><label>Обложка (опционально)</label><input type="file" name="cover" accept="image/*"></div>
-          <div class="field two"><label>Галерея (несколько изображений, опционально)</label><input type="file" name="gallery" accept="image/*" multiple></div>
-          <div class="field"><div id="galleryPreview" class="gallery-uploader"></div></div>
-          <div class="field"><button class="btn primary" type="submit">Опубликовать статью</button></div>
-        </form>
-      </section>
-
-      <!-- Список статей -->
-      <section class="articles" id="articlesList"></section>
-
-      <!-- Просмотр одной статьи -->
-      <section class="article-view card" id="articleView" style="display:none;">
-        <img id="viewCover" class="article-cover" alt="" style="display:none;">
-        <div class="article-body">
-          <h2 id="viewTitle" class="article-title"></h2>
-          <div id="viewMeta" class="article-meta"></div>
-          <div id="viewContent" class="article-content"></div>
-          <div id="viewGallery" class="article-gallery"></div>
-
-          <div class="comments">
-            <h3 style="margin:16px 0 10px;">Комментарии</h3>
-            <div id="commentList" class="roll-history" data-topic-id=""></div>
-            <form id="commentForm" class="comment-form grid" style="margin-top:10px;">
-              <div class="field"><label>Комментарий</label><textarea name="content" required placeholder="Оставьте своё мнение"></textarea></div>
-              <div class="field"><button class="btn" type="submit">Отправить</button></div>
-            </form>
-          </div>
-
-          <div class="article-actions" style="margin-top:12px;">
-            <button class="btn" id="backToList">← Назад к статьям</button>
-            <!-- Кнопка удаления статьи -->
-            <button class="btn danger" id="deleteArticleBtn" title="Удалить статью навсегда">Удалить статью</button>
-          </div>
-        </div>
-      </section>
-    </section>
-
-    <!-- Остальные вкладки (без изменений) -->
-    <section id="tab-images" class="tab-panel" role="tabpanel">
-      <div class="tab-cards">
-        <section class="card" style="grid-column: span 12;">
-          <h2>Медиа: загрузка</h2>
-          <form id="mediaForm" class="grid">
-            <div class="field three"><label>Тип</label>
-              <select name="kind" required>
-                <option value="image">Картинка</option>
-                <option value="audio">Аудио</option>
-                <option value="video">Видео</option>
-              </select>
-            </div>
-            <div class="field three"><label>Название</label><input type="text" name="title" placeholder="Название"></div>
-            <div class="field three"><label>Описание</label><input type="text" name="description" placeholder="Короткое описание"></div>
-            <div class="field three"><label>Файл</label><input type="file" name="file" required accept="image/*,audio/*,video/*"></div>
-            <div class="field"><button class="btn primary" type="submit">Загрузить</button></div>
-          </form>
-        </section>
-        <section class="card" style="grid-column: span 12;"><h2>Медиа: последние</h2><div id="mediaList" class="grid"></div></section>
-      </div>
-    </section>
-
-    <section id="tab-video" class="tab-panel" role="tabpanel">
-      <div class="tab-cards">
-        <section class="card" style="grid-column: span 12;">
-          <h2>Видео</h2>
-          <div class="grid">
-            <div class="field two"><label>Трейлер сессии</label><div class="pill"><video controls style="width:100%; border-radius:12px; background:#000;"><source src="{% static 'media/sample.mp4' %}" type="video/mp4"></video></div></div>
-            <div class="field two"><label>Клипы</label><p class="muted">Добавьте лучшие моменты или записи стримов.</p></div>
-          </div>
-        </section>
-      </div>
-    </section>
-
-    <section id="tab-music" class="tab-panel" role="tabpanel">
-      <div class="tab-cards">
-        <section class="card" style="grid-column: span 12;">
-          <h2>Музыка</h2>
-          <div class="grid">
-            <div class="field two"><label>Тема кампании</label><audio controls style="width:100%;"><source src="{% static 'media/theme.mp3' %}" type="audio/mpeg"></audio></div>
-            <div class="field two"><label>Плейлист сессии</label><p class="muted">Соберите подборку треков для битв, путешествий и отдыха у костра.</p></div>
-          </div>
-        </section>
-      </div>
-    </section>
-  </div>
-
-  <aside class="sidebar">
-    <div class="sidebar-inner">
-      <h3>Разделы</h3>
-      <div class="roll-history">
-        <a class="topnav-link" href="#lore">Лор</a>
-        <a class="topnav-link" href="#images">Иллюстрации</a>
-        <a class="topnav-link" href="#video">Видео</a>
-        <a class="topnav-link" href="#music">Музыка</a>
-      </div>
+    <div class="toolbar">
+        <h1>Творчество кампании</h1>
+        <span class="tag"><span class="dot"></span> SHREK GAMES</span>
     </div>
-  </aside>
+
+    <div class="main">
+        <!-- ЛОР -->
+        <section id="tab-lore" class="tab-panel active" role="tabpanel">
+            <!-- Папки статей -->
+            <section class="folders card" id="articleFolders">
+                <h2>Папки</h2>
+                <div id="foldersList" class="inline"></div>
+                <form id="folderForm" class="grid" style="margin-top:10px;">
+                    <div class="field two">
+                        <input type="text" name="title" placeholder="Новая папка" required>
+                    </div>
+                    <div class="field">
+                        <button class="btn" type="button" id="createLoreFolderBtn">Создать папку</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Редактор новой статьи -->
+            <section class="editor card collapsible" id="articleEditor">
+                <div class="collapsible-head">
+                    <h2>Новая статья</h2>
+                    <button class="btn ghost" data-collapse="#articleEditor" aria-expanded="true">Свернуть</button>
+                </div>
+                <div class="collapsible-body">
+                    <form id="articleForm" class="editor-row">
+                        <div class="field">
+                            <label>Заголовок</label>
+                            <input type="text" name="title" placeholder="Например, История Америса" required>
+                        </div>
+                        <div class="field">
+                            <label>Краткое описание (для списка)</label>
+                            <input type="text" name="excerpt" placeholder="1–2 предложения, чтобы зацепить читателя">
+                        </div>
+                        <div class="field">
+                            <label>Содержимое статьи</label>
+                            <textarea name="content" placeholder="Поддерживаются абзацы и базовая разметка"
+                                      required></textarea>
+                        </div>
+                        <div class="field two">
+                            <label>Обложка (опционально)</label>
+                            <input type="file" name="cover" accept="image/*">
+                        </div>
+                        <div class="field two">
+                            <label>Галерея (несколько изображений, опционально)</label>
+                            <input type="file" name="gallery" accept="image/*" multiple>
+                        </div>
+                        <div class="field two">
+                            <label>Папка</label>
+                            <select name="folder_id" id="articleFolderSelect">
+                                <option value="">Без папки</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <div id="galleryPreview" class="gallery-uploader"></div>
+                        </div>
+                        <div class="field">
+                            <button class="btn primary" type="submit">Опубликовать статью</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Список статей -->
+            <section class="articles" id="articlesList"></section>
+
+            <!-- Просмотр одной статьи -->
+            <section class="article-view card" id="articleView" style="display:none;">
+                <img id="viewCover" class="article-cover" alt="" style="display:none;">
+                <div class="article-body">
+                    <h2 id="viewTitle" class="article-title"></h2>
+                    <div id="viewMeta" class="article-meta"></div>
+                    <div id="viewContent" class="article-content"></div>
+                    <div id="viewGallery" class="article-gallery"></div>
+
+                    <div class="comments">
+                        <h3 style="margin:16px 0 10px;">Комментарии</h3>
+                        <div id="commentList" class="roll-history" data-topic-id=""></div>
+                        <form id="commentForm" class="comment-form grid" style="margin-top:10px;">
+                            <div class="field">
+                                <label>Комментарий</label>
+                                <textarea name="content" required placeholder="Оставьте своё мнение"></textarea>
+                            </div>
+                            <div class="field">
+                                <button class="btn" type="submit">Отправить</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="article-actions" style="margin-top:12px;">
+                        <button class="btn" id="backToList">← Назад к статьям</button>
+                        <button class="btn danger" id="deleteArticleBtn" title="Удалить статью навсегда">Удалить
+                            статью
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </section>
+
+        <!-- Медиа (Иллюстрации) -->
+        <section id="tab-images" class="tab-panel" role="tabpanel">
+            <div class="tab-cards">
+                <!-- Папки для медиа -->
+                <section class="folders card" id="mediaFolders">
+                    <h2>Папки</h2>
+                    <div id="mediaFoldersList" class="grid"></div>
+                    <form id="mediaFolderForm" class="grid" style="margin-top:10px;">
+                        <div class="field two">
+                            <input type="text" name="title" placeholder="Новая папка" required>
+                        </div>
+                        <div class="field">
+                            <button class="btn" type="button" id="createMediaFolderBtn">Создать папку</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="card collapsible" id="mediaUploader" style="grid-column: span 12;">
+                    <div class="collapsible-head">
+                        <h2>Медиа: загрузка</h2>
+                        <button class="btn ghost" data-collapse="#mediaUploader" aria-expanded="true">Свернуть</button>
+                    </div>
+                    <div class="collapsible-body">
+                        <form id="mediaForm" class="grid">
+                            <div class="field three">
+                                <label>Тип</label>
+                                <select name="kind" required>
+                                    <option value="image">Картинка</option>
+                                    <option value="audio">Аудио</option>
+                                    <option value="video">Видео</option>
+                                </select>
+                            </div>
+                            <div class="field three">
+                                <label>Название</label>
+                                <input type="text" name="title" placeholder="Название">
+                            </div>
+                            <div class="field three">
+                                <label>Описание</label>
+                                <input type="text" name="description" placeholder="Короткое описание">
+                            </div>
+                            <div class="field three">
+                                <label>Файл</label>
+                                <input type="file" name="file" required accept="image/*,audio/*,video/*">
+                            </div>
+                            <div class="field three">
+                                <label>Папка</label>
+                                <select name="folder_id" id="mediaFolderSelect">
+                                    <option value="">Без папки</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <button class="btn primary" type="submit">Загрузить</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="card" style="grid-column: span 12;">
+                    <h2>Медиа: последние</h2>
+                    <div id="mediaList" class="grid"></div>
+                </section>
+            </div>
+        </section>
+
+        <section id="tab-video" class="tab-panel" role="tabpanel">
+            <div class="tab-cards">
+                <section class="card" style="grid-column: span 12;">
+                    <h2>Видео</h2>
+                    <div class="grid">
+                        <div class="field two">
+                            <label>Трейлер сессии</label>
+                            <div class="pill">
+                                <video controls style="width:100%; border-radius:12px; background:#000;">
+                                    <source src="{% static 'media/sample.mp4' %}" type="video/mp4">
+                                </video>
+                            </div>
+                        </div>
+                        <div class="field two">
+                            <label>Клипы</label>
+                            <p class="muted">Добавьте лучшие моменты или записи стримов.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section id="tab-music" class="tab-panel" role="tabpanel">
+            <div class="tab-cards">
+                <section class="card" style="grid-column: span 12;">
+                    <h2>Музыка</h2>
+                    <div class="grid">
+                        <div class="field two">
+                            <label>Тема кампании</label>
+                            <audio controls style="width:100%;">
+                                <source src="{% static 'media/theme.mp3' %}" type="audio/mpeg">
+                            </audio>
+                        </div>
+                        <div class="field two">
+                            <label>Плейлист сессии</label>
+                            <p class="muted">Соберите подборку треков для битв, путешествий и отдыха у костра.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </div>
+
+    <aside class="sidebar">
+        <div class="sidebar-inner">
+            <div class="dice-panel">
+                <h3>Разделы</h3>
+                <div class="roll-history">
+                    <a class="topnav-link" href="#lore">Лор</a>
+                    <a class="topnav-link" href="#images">Иллюстрации</a>
+                    <a class="topnav-link" href="#video">Видео</a>
+                    <a class="topnav-link" href="#music">Музыка</a>
+                </div>
+            </div>
+        </div>
+    </aside>
 </div>
 
-<script type="module">
-/* ===== УТИЛИТЫ ===== */
-function getCookie(name){
-  const v = `; ${document.cookie}`;
-  const p = v.split(`; ${name}=`);
-  if (p.length === 2) return p.pop().split(';').shift();
-}
-const CSRF = () => getCookie('csrftoken');
-
-/* ===== ВКЛАДКИ ===== */
-const panels = {
-  lore:   document.getElementById('tab-lore'),
-  images: document.getElementById('tab-images'),
-  video:  document.getElementById('tab-video'),
-  music:  document.getElementById('tab-music'),
-};
-function activateTab(name){
-  Object.entries(panels).forEach(([k, el])=> el.classList.toggle('active', k===name));
-  const topBar = document.querySelector('.site-topbar');
-  const toolbar = document.querySelector('.toolbar');
-  const y = (topBar?.offsetHeight || 0) + (toolbar?.offsetHeight || 0) + 8;
-  window.scrollTo({ top:y, behavior:'smooth' });
-}
-function tabFromHash(){ const h = (location.hash||'').replace(/^#/, ''); return ['lore','images','video','music'].includes(h) ? h : 'lore'; }
-document.querySelectorAll('.btn[data-jump]').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    const name = b.dataset.jump.replace('#','');
-    history.pushState(null,'',`#${name}`);
-    activateTab(name);
-  });
-});
-window.addEventListener('hashchange', ()=> activateTab(tabFromHash()));
-activateTab(tabFromHash());
-
-/* ===== ЛОР: СТАТЬИ + УДАЛЕНИЕ ===== */
-/* Эндпоинты (ожидаются):
-   GET  /api/art/lore/articles
-   POST /api/art/lore/articles                       (multipart)
-   GET  /api/art/lore/articles/:id/
-   DELETE /api/art/lore/articles/:id/                <-- добавлен
-   GET  /api/art/lore/articles/:id/comments
-   POST /api/art/lore/articles/:id/comments
-*/
-const articlesList = document.getElementById('articlesList');
-const articleForm  = document.getElementById('articleForm');
-const galleryInput = articleForm?.querySelector('input[name="gallery"]');
-const galleryPreview = document.getElementById('galleryPreview');
-
-const articleView  = document.getElementById('articleView');
-const backToList   = document.getElementById('backToList');
-const deleteArticleBtn = document.getElementById('deleteArticleBtn');
-
-const viewCover    = document.getElementById('viewCover');
-const viewTitle    = document.getElementById('viewTitle');
-const viewMeta     = document.getElementById('viewMeta');
-const viewContent  = document.getElementById('viewContent');
-const viewGallery  = document.getElementById('viewGallery');
-
-let currentArticleId = null;
-
-async function loadArticles(){
-  try{
-    const res = await fetch('/api/art/lore/articles', { credentials:'same-origin' });
-    if(!res.ok) return;
-    const data = await res.json();
-    renderArticles(Array.isArray(data.items) ? data.items : []);
-  }catch(e){}
-}
-
-function articleCardActions(id){
-  const actions = document.createElement('div');
-  actions.className = 'article-actions';
-  const readBtn = document.createElement('button');
-  readBtn.className = 'btn';
-  readBtn.textContent = 'Читать';
-  readBtn.addEventListener('click', ()=> openArticle(id));
-  const delBtn = document.createElement('button');
-  delBtn.className = 'btn danger';
-  delBtn.textContent = 'Удалить';
-  delBtn.title = 'Удалить статью';
-  delBtn.addEventListener('click', ()=> confirmDeleteArticle(id));
-  actions.appendChild(readBtn);
-  actions.appendChild(delBtn);
-  return actions;
-}
-
-function renderArticles(items){
-  if(!articlesList) return;
-  articlesList.innerHTML = '';
-  items.forEach(it=>{
-    const card = document.createElement('article');
-    card.className = 'article-card';
-    if (it.cover_url){
-      const img = document.createElement('img');
-      img.className = 'article-cover';
-      img.src = it.cover_url;
-      img.alt = it.title || 'cover';
-      card.appendChild(img);
-    }
-    const body = document.createElement('div');
-    body.className = 'article-body';
-    const h = document.createElement('h3');
-    h.className = 'article-title';
-    h.textContent = it.title || 'Без названия';
-    const meta = document.createElement('div');
-    meta.className = 'article-meta';
-    meta.textContent = `${it.author||'anon'} • ${new Date(it.ts||Date.now()).toLocaleString()}`;
-    const excerpt = document.createElement('p');
-    excerpt.className = 'article-excerpt';
-    excerpt.textContent = it.excerpt || (it.content ? String(it.content).slice(0,140)+'…' : '');
-
-    body.appendChild(h);
-    body.appendChild(meta);
-    body.appendChild(excerpt);
-    body.appendChild(articleCardActions(it.id));
-    card.appendChild(body);
-    articlesList.appendChild(card);
-  });
-}
-
-async function openArticle(id){
-  try{
-    const res = await fetch(`/api/art/lore/articles/${id}/`, { credentials:'same-origin' });
-    if(!res.ok) return;
-    const data = await res.json();
-    const it = data.item || {};
-    currentArticleId = it.id;
-
-    if (it.cover_url){ viewCover.src = it.cover_url; viewCover.style.display = ''; } else { viewCover.style.display = 'none'; }
-    viewTitle.textContent = it.title || 'Без названия';
-    viewMeta.textContent  = `${it.author||'anon'} • ${new Date(it.ts||Date.now()).toLocaleString()}`;
-    viewContent.innerHTML = '';
-    String(it.content||'').split(/\n{2,}/).forEach(par=>{
-      const p = document.createElement('p'); p.textContent = par.trim(); viewContent.appendChild(p);
-    });
-    viewGallery.innerHTML = '';
-    (it.gallery||[]).forEach(url=>{ const img = document.createElement('img'); img.src = url; img.alt='illustration'; viewGallery.appendChild(img); });
-
-    document.getElementById('articlesList').style.display = 'none';
-    articleView.style.display = '';
-    await loadArticleComments(currentArticleId);
-    if (location.hash !== '#lore'){ history.pushState(null,'','#lore'); activateTab('lore'); }
-  }catch(e){}
-}
-
-backToList?.addEventListener('click', ()=>{
-  articleView.style.display = 'none';
-  document.getElementById('articlesList').style.display = '';
-  currentArticleId = null;
-});
-
-/* Удаление из просмотра */
-deleteArticleBtn?.addEventListener('click', ()=>{
-  if (!currentArticleId) return;
-  confirmDeleteArticle(currentArticleId, /*fromView*/true);
-});
-
-/* Подтверждение и удаление */
-async function confirmDeleteArticle(id, fromView=false){
-  const ok = confirm('Удалить статью безвозвратно?');
-  if (!ok) return;
-  try{
-    const res = await fetch(`/api/art/lore/articles/${id}/`, {
-      method:'DELETE',
-      headers:{ 'X-CSRFToken': CSRF() },
-      credentials:'same-origin'
-    });
-    if (res.ok){
-      // Если мы на странице просмотра — вернёмся к списку
-      if (fromView || currentArticleId === id){
-        articleView.style.display = 'none';
-        document.getElementById('articlesList').style.display = '';
-        currentArticleId = null;
-      }
-      await loadArticles();
-    } else {
-      alert('Не удалось удалить статью');
-    }
-  }catch(e){ alert('Ошибка сети при удалении'); }
-}
-
-/* Комментарии к статье */
-const commentForm = document.getElementById('commentForm');
-const commentsBox = document.getElementById('commentList');
-
-async function loadArticleComments(articleId){
-  try{
-    const res = await fetch(`/api/art/lore/articles/${articleId}/comments`, { credentials:'same-origin' });
-    if(!res.ok) return;
-    const data = await res.json();
-    renderComments(Array.isArray(data.items)? data.items : []);
-  }catch(e){}
-}
-function renderComments(items){
-  commentsBox.innerHTML = '';
-  if (!items.length){
-    const empty = document.createElement('div'); empty.className='muted'; empty.textContent='Пока нет комментариев'; commentsBox.appendChild(empty); return;
-  }
-  items.forEach(it=>{
-    const wrap = document.createElement('div'); wrap.className='comment-item';
-    const meta = document.createElement('div'); meta.className='comment-meta'; meta.textContent = `${it.author||'anon'} • ${new Date(it.ts||Date.now()).toLocaleString()}`;
-    const text = document.createElement('div'); text.textContent = it.content || '';
-    wrap.appendChild(meta); wrap.appendChild(text); commentsBox.appendChild(wrap);
-  });
-}
-commentForm?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  if (!currentArticleId) return;
-  const content = commentForm.querySelector('[name="content"]').value.trim();
-  if (!content) return;
-  try{
-    const res = await fetch(`/api/art/lore/articles/${currentArticleId}/comments`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'X-CSRFToken': CSRF() },
-      credentials:'same-origin',
-      body: JSON.stringify({ content })
-    });
-    if (res.ok){ commentForm.reset(); loadArticleComments(currentArticleId); }
-    else { alert('Не удалось отправить комментарий'); }
-  }catch(e){ alert('Ошибка сети'); }
-});
-
-/* Публикация статьи (с файлами) */
-galleryInput?.addEventListener('change', ()=>{
-  galleryPreview.innerHTML = '';
-  const files = Array.from(galleryInput.files||[]);
-  files.forEach(f=>{
-    const url = URL.createObjectURL(f);
-    const d = document.createElement('div'); d.className='thumb'; d.style.backgroundImage = `url('${url}')`;
-    galleryPreview.appendChild(d);
-  });
-});
-articleForm?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(articleForm);
-  try{
-    const res = await fetch('/api/art/lore/articles', {
-      method:'POST',
-      headers:{ 'X-CSRFToken': CSRF() },
-      credentials:'same-origin',
-      body: fd
-    });
-    if (res.ok){
-      articleForm.reset(); galleryPreview.innerHTML = '';
-      await loadArticles();
-      const topBar = document.querySelector('.site-topbar'); const toolbar = document.querySelector('.toolbar');
-      const y = (topBar?.offsetHeight || 0) + (toolbar?.offsetHeight || 0) + 8;
-      window.scrollTo({ top:y, behavior:'smooth' });
-    } else {
-      alert('Не удалось опубликовать статью');
-    }
-  }catch(e){ alert('Ошибка сети'); }
-});
-
-/* Остальные разделы — медиа (как было) */
-const mediaForm = document.getElementById('mediaForm');
-const mediaList = document.getElementById('mediaList');
-async function loadMedia(kind=''){
-  try{
-    const url = kind ? `/api/art/media?kind=${encodeURIComponent(kind)}` : '/api/art/media';
-    const res = await fetch(url, { credentials:'same-origin' });
-    if (!res.ok) return;
-    const data = await res.json();
-    renderMedia(Array.isArray(data.items) ? data.items : []);
-  }catch(e){}
-}
-
-function renderMedia(items){
-  if (!mediaList) return;
-  mediaList.innerHTML = '';
-  items.forEach(it=>{
-    const card = document.createElement('div');
-    card.className = 'card';
-
-    const headWrap = document.createElement('div');
-    headWrap.style.display = 'flex';
-    headWrap.style.alignItems = 'center';
-    headWrap.style.justifyContent = 'space-between';
-    const head = document.createElement('h2');
-    head.textContent = it.title || `[${it.kind}]`;
-    const actions = document.createElement('div');
-    actions.style.display = 'flex';
-    actions.style.gap = '8px';
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn danger';
-    delBtn.textContent = 'Удалить';
-    delBtn.title = 'Удалить медиа';
-    delBtn.addEventListener('click', ()=> deleteMedia(it.id));
-
-    actions.appendChild(delBtn);
-    headWrap.appendChild(head);
-    headWrap.appendChild(actions);
-    card.appendChild(headWrap);
-
-    const p = document.createElement('p');
-    p.className = 'muted';
-    p.textContent = it.description || '';
-    card.appendChild(p);
-
-    if (it.kind === 'image'){
-      const img = document.createElement('img');
-      img.src = it.url; img.alt = it.title || 'image';
-      card.appendChild(img);
-    } else if (it.kind === 'video'){
-      const v = document.createElement('video');
-      v.controls = true; v.src = it.url;
-      card.appendChild(v);
-    } else if (it.kind === 'audio'){
-      const a = document.createElement('audio');
-      a.controls = true; a.src = it.url;
-      card.appendChild(a);
-    }
-    mediaList.appendChild(card);
-  });
-}
-
-// 2) Функция удаления медиа:
-async function deleteMedia(id){
-  const ok = confirm('Удалить медиа безвозвратно?');
-  if (!ok) return;
-  try{
-    const res = await fetch(`/api/art/media/${id}/`, {
-      method:'DELETE',
-      headers:{ 'X-CSRFToken': CSRF() },
-      credentials:'same-origin'
-    });
-    if (res.ok){
-      await loadMedia();
-    } else if (res.status === 403){
-      alert('Недостаточно прав для удаления медиа.');
-    } else {
-      alert('Не удалось удалить медиа');
-    }
-  }catch(e){ alert('Ошибка сети при удалении медиа'); }
-}
-
-mediaForm?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(mediaForm);
-  try{
-    const res = await fetch('/api/art/media', { method:'POST', headers:{ 'X-CSRFToken': CSRF() }, credentials:'same-origin', body: fd });
-    if (res.ok){ mediaForm.reset(); loadMedia(); } else { alert('Не удалось загрузить медиа'); }
-  }catch(e){ alert('Ошибка сети при загрузке медиа'); }
-});
-
-/* Инициализация */
-loadArticles().catch(()=>{});
-loadMedia().catch(()=>{});
-
-/* Realtime */
-(function connectArtWS(){
-  try{
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${location.host}/ws/art`);
-    ws.onmessage = (ev)=>{
-      try{
-        const msg = JSON.parse(ev.data);
-        if (msg.type === 'media'){ loadMedia(); }
-        else if (msg.type === 'lore_topic' || msg.type === 'article'){ loadArticles(); }
-        else if (msg.type === 'lore_comment' && currentArticleId && String(msg.item.article_id)===String(currentArticleId)){
-          loadArticleComments(currentArticleId);
-        }
-      }catch(e){}
-    };
-    ws.onclose = ()=> setTimeout(connectArtWS, 1500);
-  }catch(e){}
-})();
-</script>
+<!-- Внешний модуль JS -->
+<script type="module" src="{% static 'js/art.js' %}"></script>
 </body>
 </html>

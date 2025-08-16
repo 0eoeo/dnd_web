@@ -58,9 +58,13 @@ export const FIELD_GROUPS = [
     ['CP','Медные (cp)'], ['SP','Серебряные (sp)'], ['EP','Электрум (ep)'], ['GP','Золотые (gp)'], ['PP','Платиновые (pp)']
   ]},
 
-  { id:'personality', title:'Черты личности и особенности', layout:'two', long:['ProficienciesLang','Equipment','Features and Traits','PersonalityTraits','Ideals','Bonds','Flaws'], fields:[
+  { id:'equipment', title:'Снаряжение', layout:'stack', long:['Equipment'], fields:[
+    ['Equipment','Снаряжение']
+  ]},
+
+  { id:'personality', title:'Черты личности и особенности', layout:'two', long:['ProficienciesLang','Features and Traits','PersonalityTraits','Ideals','Bonds','Flaws'], fields:[
     ['PersonalityTraits','Черты характера'], ['Ideals','Идеалы'], ['Bonds','Привязанности'], ['Flaws','Изъяны'],
-    ['ProficienciesLang','Владения и языки'], ['Equipment','Снаряжение'], ['Features and Traits','Особенности и черты']
+    ['ProficienciesLang','Владения и языки'], ['Features and Traits','Особенности и черты']
   ]},
 ];
 

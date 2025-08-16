@@ -2,48 +2,59 @@
 {% load static %}
 <html lang="ru">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>Форма персонажа D&D — загрузка PDF по name</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Форма персонажа D&D — загрузка PDF по name</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
 <header class="site-topbar">
-    <div class="topbar-inner">
-        <a class="brand" href="/">DnD</a>
-        <nav class="topnav">
-            <a class="topnav-link" href="/viewer">Лист персонажа</a>
-            <a class="topnav-link" href="/art">Творчество</a>
-        </nav>
-    </div>
+  <div class="topbar-inner">
+    <a class="brand" href="/">DnD</a>
+    <nav class="topnav">
+      <a class="topnav-link" href="/viewer">Лист персонажа</a>
+      <a class="topnav-link" href="/art">Творчество</a>
+    </nav>
+  </div>
 </header>
 
 <div class="container with-sidebar">
-    <div class="toolbar">
-        <h1>Форма персонажа D&D</h1>
-        <span class="tag"><span class="dot"></span> SHREK GAMES</span>
-        <div class="spacer"></div>
+  <div class="toolbar">
+    <h1>Форма персонажа D&D</h1>
+    <span class="tag"><span class="dot"></span> SHREK GAMES</span>
+    <div class="spacer"></div>
 
-        <select id="sheetSelect" title="Выбрать сохранённый лист" style="min-width:220px">
-            <option value="">— выбрать лист —</option>
-        </select>
+    <select id="sheetSelect" title="Выбрать сохранённый лист" style="min-width:220px">
+      <option value="">— выбрать лист —</option>
+    </select>
 
-        <label class="btn ghost" for="pdfFile">Загрузить PDF</label>
-        <input id="pdfFile" type="file" accept="application/pdf" hidden>
+    <label class="btn ghost" for="pdfFile">Загрузить PDF</label>
+    <input id="pdfFile" type="file" accept="application/pdf" hidden>
 
-        <button class="btn primary" id="btnSave" type="button">Сохранить</button>
-    </div>
+    <button class="btn primary" id="btnSave" type="button">Сохранить</button>
+  </div>
 
-    <div class="main">
-        <div class="cards" id="cards"></div>
-    </div>
+  <div class="main">
+    <!-- ВСТРОЕННАЯ КАРТА В КОЛОНКЕ (без разворачивания) -->
+    <section id="mapEmbed" class="map-embed" aria-expanded="false">
+      <div class="map-toolbar">
+        <button class="btn" id="btnMapCollapse" type="button">Карта</button>
+        <button class="btn ghost" id="btnMapFit" type="button" title="Подогнать по ширине">Подогнать</button>
+        <button class="btn ghost" id="btnMapReset" type="button" title="Сброс масштаба">100%</button>
+        <div class="map-zoom-indicator" id="mapZoomIndicator">100%</div>
+      </div>
+      <div class="map-canvas-wrap" id="mapCanvasWrap">
+        <div class="map-canvas" id="mapCanvas"></div>
+      </div>
+    </section>
 
-    <!-- ВНИМАНИЕ: id должен быть diceSidebar -->
-    <aside class="sidebar">
-        <div id="diceSidebar" class="sidebar-inner">
-            <!-- сюда dice.js сам вставит: панель произвольного броска и Историю -->
-        </div>
-    </aside>
+    <!-- Далее — лист персонажа -->
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <aside class="sidebar">
+    <div id="diceSidebar" class="sidebar-inner"></div>
+  </aside>
 </div>
 
 <script type="module" src="{% static 'js/main.js' %}"></script>

@@ -24,4 +24,10 @@ urlpatterns = [
     path("api/art/lore/articles/<int:pk>/", views.api_article_detail, name="api_article_detail"),
     # Article comments API
     path("api/art/lore/articles/<int:pk>/comments", views.api_article_comments, name="api_article_comments"),
+
+path('api/art/lore/folders', views.LoreFolderListCreate.as_view(), name='lore_folders'),
+    path('api/art/lore/folders/<int:pk>/', views.LoreFolderDestroy.as_view(), name='lore_folder_detail'),
+    # media folders
+    path('api/art/media/folders', views.MediaFolderListCreate.as_view(), name='media_folders'),
+    path('api/art/media/folders/<int:pk>/', views.MediaFolderDestroy.as_view(), name='media_folder_detail'),
 ]
