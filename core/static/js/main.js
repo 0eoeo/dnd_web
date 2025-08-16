@@ -29,11 +29,14 @@ function initEmbeddedMap(){
   if(!embed || !wrap || !canvas) return;
 
   const MAP_URL = '/static/img/Albion%208k.png';
-  let img=null, isImgLoaded=false;
-  let scale=1, minScale=0.1, maxScale=6;
-  let isDragging=false, startX=0, startY=0, startScrollLeft=0, startScrollTop=0;
+  let img = null, isImgLoaded = false;
+  let scale = 1, minScale = 0.1, maxScale = 6;
+  let isDragging = false, startX = 0, startY = 0, startScrollLeft = 0, startScrollTop = 0;
 
-  function updateZoomLabel(){ if (zoomLbl) zoomLbl.textContent = `${Math.round(scale*100)}%`; }
+  function updateZoomLabel(){
+    if (zoomLbl) zoomLbl.textContent = `${Math.round(scale*100)}%`;
+  }
+
   function setScale(s, ox=0, oy=0){
     scale = Math.max(minScale, Math.min(maxScale, s));
     canvas.style.transform = `scale(${scale})`;
@@ -42,17 +45,22 @@ function initEmbeddedMap(){
     wrap.scrollLeft = sl + ox*(scale - 1);
     wrap.scrollTop  = st + oy*(scale - 1);
   }
+
   function ensureImg(){
-    if(img) return;
+    if (img) return;
     img = new Image();
     img.alt='Карта'; img.draggable=false; img.loading='eager'; img.decoding='async';
     // @ts-ignore
     img.fetchPriority = 'high';
     img.src = MAP_URL;
-    img.onload = ()=>{ isImgLoaded = true; requestAnimationFrame(()=>{ fitToWidth(); setTimeout(fitToWidth, 0); }); };
+    img.onload = ()=>{
+      isImgLoaded = true;
+      requestAnimationFrame(()=>{ fitToWidth(); setTimeout(fitToWidth, 0); });
+    };
     img.onerror = ()=> console.error('[map] image load error:', MAP_URL);
     canvas.appendChild(img);
   }
+
   function fitToWidth(){
     if(!img || !isImgLoaded || img.naturalWidth===0) return;
     const rect = wrap.getBoundingClientRect();
@@ -61,28 +69,62 @@ function initEmbeddedMap(){
     setScale(s>0?s:1);
     wrap.scrollLeft = 0; wrap.scrollTop = 0;
   }
-  function resetZoom(){ setScale(1); wrap.scrollLeft = 0; wrap.scrollTop = 0; }
+
+  function resetZoom(){
+    setScale(1);
+    wrap.scrollLeft = 0; wrap.scrollTop = 0;
+  }
+
   function setCollapsed(collapsed){
     if (collapsed){
-      embed.classList.add('collapsed'); embed.setAttribute('aria-expanded','false');
-      if (btnToggle) btnToggle.textContent = 'Показать';
+      embed.classList.add('collapsed');
+      embed.setAttribute('aria-expanded','false');
+      if (btnToggle) btnToggle.textContent = 'Показать карту';
     } else {
-      embed.classList.remove('collapsed'); embed.setAttribute('aria-expanded','true');
-      if (btnToggle) btnToggle.textContent = 'Скрыть';
-      ensureImg(); requestAnimationFrame(()=>{ fitToWidth(); setTimeout(fitToWidth, 0); });
+      embed.classList.remove('collapsed');
+      embed.setAttribute('aria-expanded','true');
+      if (btnToggle) btnToggle.textContent = 'Скрыть карту';
+      ensureImg();
+      requestAnimationFrame(()=>{ fitToWidth(); setTimeout(fitToWidth, 0); });
     }
   }
-  function toggleCollapsed(){ const collapsed = embed.classList.contains('collapsed'); setCollapsed(!collapsed); }
 
-  setCollapsed(false);
-  wrap.addEventListener('mousedown', (e)=>{ if (e.button !== 0) return; if (embed.classList.contains('collapsed')) return;
+  function toggleCollapsed(){
+    const collapsed = embed.classList.contains('collapsed');
+    setCollapsed(!collapsed);
+  }
+
+  // По умолчанию — свёрнута
+  setCollapsed(true);
+  updateZoomLabel(); // показываем 100% даже когда свёрнута
+
+  // Drag to pan
+  wrap.addEventListener('mousedown', (e)=>{
+    if (e.button !== 0) return;
+    if (embed.classList.contains('collapsed')) return;
     isDragging = true; wrap.classList.add('is-dragging');
-    startX = e.clientX; startY = e.clientY; startScrollLeft = wrap.scrollLeft; startScrollTop  = wrap.scrollTop; e.preventDefault();
+    startX = e.clientX; startY = e.clientY;
+    startScrollLeft = wrap.scrollLeft; startScrollTop  = wrap.scrollTop;
+    e.preventDefault();
   });
-  window.addEventListener('mousemove', (e)=>{ if (!isDragging) return; wrap.scrollLeft = startScrollLeft - (e.clientX - startX); wrap.scrollTop  = startScrollTop  - (e.clientY - startY); });
-  window.addEventListener('mouseup', ()=>{ if (!isDragging) return; isDragging = false; wrap.classList.remove('is-dragging'); });
-  wrap.addEventListener('wheel', (e)=>{ if (embed.classList.contains('collapsed')) return;
-    if (e.shiftKey){ wrap.scrollLeft += e.deltaY; e.preventDefault(); return; }
+  window.addEventListener('mousemove', (e)=>{
+    if (!isDragging) return;
+    wrap.scrollLeft = startScrollLeft - (e.clientX - startX);
+    wrap.scrollTop  = startScrollTop  - (e.clientY - startY);
+  });
+  window.addEventListener('mouseup', ()=>{
+    if (!isDragging) return;
+    isDragging = false; wrap.classList.remove('is-dragging');
+  });
+
+  // Wheel zoom/scroll
+  wrap.addEventListener('wheel', (e)=>{
+    if (embed.classList.contains('collapsed')) return;
+    if (e.shiftKey){
+      wrap.scrollLeft += e.deltaY;
+      e.preventDefault();
+      return;
+    }
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
     const r = wrap.getBoundingClientRect();
     const ox = e.clientX - r.left + wrap.scrollLeft;
@@ -96,12 +138,15 @@ function initEmbeddedMap(){
   btnToggle?.addEventListener('click', toggleCollapsed);
   btnTBar?.addEventListener('click', ()=>{
     toggleCollapsed();
-    if (!embed.classList.contains('collapsed')){ embed.scrollIntoView({ behavior:'smooth', block:'start' }); }
+    if (!embed.classList.contains('collapsed')){
+      embed.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
   });
-  window.addEventListener('resize', ()=>{ if (!embed.classList.contains('collapsed') && isImgLoaded) fitToWidth(); });
-
-  ensureImg(); updateZoomLabel();
+  window.addEventListener('resize', ()=>{
+    if (!embed.classList.contains('collapsed') && isImgLoaded) fitToWidth();
+  });
 }
+
 
 /* === Работа с листами === */
 const inputPdf    = document.getElementById('pdfFile');
