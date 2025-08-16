@@ -412,7 +412,6 @@ input[type="number"]:focus, textarea:focus, select:focus{
   min-height:360px;
   overflow:hidden;          /* перетаскивание мышью, без полос */
   cursor:grab;
-  background:#0b0e14;
 }
 .map-canvas-wrap.is-dragging{ cursor:grabbing; }
 
@@ -432,12 +431,10 @@ input[type="number"]:focus, textarea:focus, select:focus{
   display:flex; align-items:center; gap:8px;
   padding:8px 10px;
   border-bottom:1px solid rgba(0,0,0,.08);
-  background:rgba(0,0,0,.03);
 }
 .map-toolbar .btn{
   border:none;
   padding:6px 10px; border-radius:8px; cursor:pointer; font-size:14px;
-  background:#eee1;
 }
 .map-toolbar .btn.ghost{ background:transparent; border:1px solid rgba(0,0,0,.12); }
 .map-zoom-indicator{ margin-left:auto; font-size:12px; opacity:.8; }
