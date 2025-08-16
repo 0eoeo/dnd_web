@@ -69,11 +69,28 @@ export const FIELD_GROUPS = [
 ];
 
 export const API = {
-  uploadPdf: '/api/upload-pdf/',
-  listSheets: '/api/media-sheets/',
+  // Чистый DRF: загрузка PDF идёт на /api/sheets/ (multipart с ключом 'pdf' + 'name')
+  uploadPdf: '/api/sheets/',
+  listSheets: '/api/sheets/',
   getSheet: id => `/api/sheets/${id}/`,
   createSheet: '/api/sheets/',
   updateSheet: id => `/api/sheets/${id}/`,
+
+  // Заклинания
   spellsList: '/api/spells/',
   spellDetail: slug => `/api/spells/${encodeURIComponent(slug)}/`,
+
+  // Раздел «Творчество»
+  loreFolders: '/api/lore-folders/',
+  loreFolder:  id => `/api/lore-folders/${id}/`,
+
+  mediaFolders: '/api/media-folders/',
+  mediaFolder:  id => `/api/media-folders/${id}/`,
+
+  articles: '/api/articles/',
+  article:  id => `/api/articles/${id}/`,
+  articleComments: id => `/api/articles/${id}/comments/`,
+
+  media: '/api/media/',
+  mediaItem: id => `/api/media/${id}/`,
 };

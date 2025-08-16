@@ -1,498 +1,239 @@
-import json
-from pathlib import Path
-from typing import List
-
-from django.conf import settings
-from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction
-from django.http import JsonResponse, HttpResponseBadRequest, HttpRequest, HttpResponse
-from django.views.decorators.http import require_http_methods
-from django.shortcuts import get_object_or_404, render
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
-import json
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.utils.timezone import now
-from rest_framework import generics, permissions, status
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.utils.timezone import now
+from django.views.generic import TemplateView
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.db import transaction
 
-from .models import Roll, LoreComment, LoreTopic, MediaAsset, LoreArticleComment, LoreArticle, LoreArticleImage, \
-    SpellCache, MediaFolder, LoreFolder
+from .extract_pdf_form_fields import extract_form_fields
+from .models import (
+    CharacterSheet, Roll, LoreFolder, MediaFolder,
+    LoreArticle, LoreArticleComment, MediaAsset, SpellCache, CharacterSheetRevision
+)
+from .serializers import (
+    CharacterSheetSerializer, RollSerializer,
+    LoreFolderSerializer, MediaFolderSerializer,
+    LoreArticleSerializer, LoreArticleCommentSerializer,
+    MediaAssetSerializer, CharacterSheetRevisionSerializer
+)
 from .config import SPELLS
-from .models import CharacterSheet
-from .extract_pdf_form_fields import extract_form_fields  # проверь путь
-from .serializers import MediaFolderSerializer, LoreFolderSerializer
 from .utils import fetch_spell_html_via_process
 
 
-def _sheet_item(s):
-    return {"id": s.id, "name": s.name, "created_at": s.created_at.isoformat()}
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class HomeView(TemplateView):
+    template_name = "home.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update({
+            "page": "home",
+            "title": "DnD — мир приключений",
+        })
+        return ctx
 
 
-def _parse_payload(request):
-    """
-    Универсальный парсер: сначала пытаемся прочитать application/json,
-    если не получилось — берём из form-data / x-www-form-urlencoded.
-    """
-    # 1) JSON-тело
-    try:
-        if request.body:
-            body = request.body.decode(request.encoding or "utf-8")
-            if body.strip():
-                return json.loads(body)
-    except Exception:
-        # пойдём дальше — попробуем форму
-        pass
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class ArtView(TemplateView):
+    template_name = "art.html"
 
-    # 2) form-data / x-www-form-urlencoded
-    name = (request.POST.get("name") or "").strip()
-    data_raw = request.POST.get("data")
-    data = {}
-    if data_raw:
-        try:
-            data = json.loads(data_raw)
-        except Exception:
-            # если прислали не-JSON — проигнорируем, создадим пустой
-            data = {}
-    return {"name": name, "data": data}
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update({
+            "page": "art",
+            "title": "Творчество кампании — Лор, Иллюстрации, Видео, Музыка",
+            "sections": [
+                {"id": "lore", "name": "Лор"},
+                {"id": "images", "name": "Иллюстрации"},
+                {"id": "video", "name": "Видео"},
+                {"id": "music", "name": "Музыка"},
+            ],
+        })
+        return ctx
 
 
-@ensure_csrf_cookie
-def viewer(request):
-    return render(request, "viewer.html")
-
-@ensure_csrf_cookie
-def home(request: HttpRequest) -> HttpResponse:
-    """
-    Главная страница сайта (/) — обзор проекта, быстрые ссылки.
-    Шаблон: templates/home.html
-    """
-    ctx = {
-        # при необходимости прокинь динамические данные
-        "page": "home",
-        "title": "DnD — мир приключений",
-    }
-    return render(request, "home.html", ctx)
-
-@ensure_csrf_cookie
-def art(request: HttpRequest) -> HttpResponse:
-    """
-    Страница 'Творчество' (/art) — разделы: Лор, Иллюстрации, Видео, Музыка.
-    Шаблон: templates/art.html
-    """
-    ctx = {
-        "page": "art",
-        "title": "Творчество кампании — Лор, Иллюстрации, Видео, Музыка",
-        # Пример структуры для будущей динамики, если захочешь подгружать данные из БД/файлов:
-        "sections": [
-            {"id": "lore", "name": "Лор"},
-            {"id": "images", "name": "Иллюстрации"},
-            {"id": "video", "name": "Видео"},
-            {"id": "music", "name": "Музыка"},
-        ],
-    }
-    return render(request, "art.html", ctx)
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class ViewerView(TemplateView):
+    template_name = "viewer.html"
 
 
-@require_http_methods(["GET", "POST"])
-def sheets_collection(request):
-    if request.method == "GET":
-        return JsonResponse([_sheet_item(s) for s in CharacterSheet.objects.all()], safe=False)
+# --- DRF ViewSets ---
+class CharacterSheetViewSet(viewsets.ModelViewSet):
+    queryset = CharacterSheet.objects.all().order_by("-updated_at", "-created_at")
+    serializer_class = CharacterSheetSerializer
+    permission_classes = [permissions.AllowAny]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
-    payload = _parse_payload(request)   # как у тебя выше
-    if payload is None:
-        return HttpResponseBadRequest("invalid json")
+    def _create_revision(self, sheet: CharacterSheet, *, name: str, data: dict, pdf_file):
+        """
+        Создание новой ревизии для логического листа: version = last + 1.
+        """
+        last = (
+            CharacterSheetRevision.objects
+            .filter(logical_key=sheet.logical_key)
+            .order_by("-version")
+            .first()
+        )
+        next_version = (last.version + 1) if last else 1
 
-    name = payload.get("name") or "Лист без названия"
-    data = payload.get("data") or {}
-    s = CharacterSheet.objects.create(name=name, data=data)
+        rev = CharacterSheetRevision(
+            sheet=sheet,
+            logical_key=sheet.logical_key,
+            version=next_version,
+            name=name,
+            data=data or {},
+        )
+        if pdf_file:
+            # Сохраняем копию файла в историю, чтобы «снимок» был самодостаточным
+            rev.pdf.save(f"{sheet.id}_v{next_version}.pdf", pdf_file, save=False)
+        rev.save()
+        return rev
 
-    # ВАЖНО: вернуть сохранённый data
-    return JsonResponse({
-        "id": s.id,
-        "name": s.name,
-        "created_at": s.created_at.isoformat(),
-        "data": s.data
-    })
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        """
+        Два режима:
+        - multipart: pdf(или file) + name → распарсить PDF в data, создать sheet и ревизию v1.
+        - JSON: name?, data? → создать sheet и ревизию v1.
+        """
+        pdf = request.FILES.get("pdf") or request.FILES.get("file")
+        name = (request.data.get("name") or "").strip() or "Импортированный лист"
+
+        # Создаём базовую запись
+        sheet = CharacterSheet.objects.create(name=name, data={})
+
+        # Сохраняем PDF, если есть, и парсим в data
+        if pdf:
+            sheet.pdf.save(f"{sheet.id}_{pdf.name}", pdf, save=True)
+            parsed = extract_form_fields(sheet.pdf.path) or {}
+            sheet.data = {"fields": parsed.get("fields", [])}
+            sheet.save(update_fields=["data"])
+
+            # В историю писать бинарно PDF — используем исходный загруженный файл (он уже прочитан)
+            # Важно: для ревизии надо заново открыть файл из sheet.pdf (так надёжнее)
+            with sheet.pdf.open("rb") as f:
+                self._create_revision(sheet, name=sheet.name, data=sheet.data, pdf_file=f)
+        else:
+            # Чистый JSON create
+            payload_data = request.data.get("data") or {}
+            sheet.data = payload_data
+            sheet.save(update_fields=["data"])
+            self._create_revision(sheet, name=sheet.name, data=sheet.data, pdf_file=None)
+
+        return Response(self.get_serializer(sheet).data, status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
+    def partial_update(self, request, *args, **kwargs):
+        """
+        PATCH: обновляем «текущую» запись и создаём новую ревизию (version += 1).
+        """
+        sheet = self.get_object()
+        name = (request.data.get("name") or sheet.name).strip()
+        data = request.data.get("data", sheet.data)
+
+        # Обновляем текущий лист
+        sheet.name = name
+        sheet.data = data
+        sheet.save(update_fields=["name", "data", "updated_at"])
+
+        # В историю — снимок данных (без перезаписи текущего pdf)
+        self._create_revision(sheet, name=name, data=data, pdf_file=None)
+
+        return Response(self.get_serializer(sheet).data, status=status.HTTP_200_OK)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        """
+        PUT: аналогично PATCH, но полный апдейт.
+        """
+        return self.partial_update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["get"])
+    def history(self, request, pk=None):
+        """
+        История версий для конкретного листа (id «текущей» записи).
+        Самая свежая версия — первая.
+        """
+        sheet = self.get_object()
+        qs = CharacterSheetRevision.objects.filter(logical_key=sheet.logical_key).order_by("-version")
+        data = CharacterSheetRevisionSerializer(qs, many=True).data
+        return Response(data, status=status.HTTP_200_OK)
+
+class RollViewSet(viewsets.ModelViewSet):
+    queryset = Roll.objects.all().order_by("-created_at")
+    serializer_class = RollSerializer
+    permission_classes = [permissions.AllowAny]
 
 
-@require_http_methods(["GET", "PUT", "PATCH"])
-def sheet_detail(request, pk: int):
-    s = get_object_or_404(CharacterSheet, pk=pk)
+class LoreFolderViewSet(viewsets.ModelViewSet):
+    queryset = LoreFolder.objects.all().order_by("title")
+    serializer_class = LoreFolderSerializer
+    permission_classes = [permissions.AllowAny]
 
-    if request.method == "GET":
-        return JsonResponse({"id": s.id, "name": s.name, "created_at": s.created_at.isoformat(), "data": s.data})
 
-    payload = _parse_payload(request)
-    if payload is None:
-        return HttpResponseBadRequest("invalid json")
+class MediaFolderViewSet(viewsets.ModelViewSet):
+    queryset = MediaFolder.objects.all().order_by("title")
+    serializer_class = MediaFolderSerializer
+    permission_classes = [permissions.AllowAny]
 
-    if "name" in payload:
-        new_name = (payload.get("name") or "").strip()
-        if new_name:
-            s.name = new_name
-    if "data" in payload and payload.get("data") is not None:
-        s.data = payload.get("data")
 
-    s.save(update_fields=["name", "data"])
+class LoreArticleViewSet(viewsets.ModelViewSet):
+    queryset = LoreArticle.objects.all().order_by("-updated_at", "-created_at")
+    serializer_class = LoreArticleSerializer
+    permission_classes = [permissions.AllowAny]
 
-    # ВАЖНО: вернуть актуальные data
-    return JsonResponse({"id": s.id, "name": s.name, "created_at": s.created_at.isoformat(), "data": s.data})
+    @action(detail=True, methods=['get', 'post'])
+    def comments(self, request, pk=None):
+        article = self.get_object()
+        if request.method == 'GET':
+            qs = article.comments.all().order_by("created_at")
+            return Response(LoreArticleCommentSerializer(qs, many=True).data)
 
-@require_http_methods(["POST"])
-def upload_pdf(request):
-    f = request.FILES.get("file")
-    if not f:
-        return HttpResponseBadRequest("file missing")
+        serializer = LoreArticleCommentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            article=article,
+            author=request.user if request.user.is_authenticated else None
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    import os
-    sheet = CharacterSheet.objects.create(name=os.path.splitext(f.name)[0] or "Импортированный лист", data={})
-    sheet.pdf.save(f"{sheet.id}_{f.name}", f, save=True)
 
-    data = extract_form_fields(sheet.pdf.path)  # {"fields":[...], ...}
-    sheet.data = {"fields": data.get("fields", [])}
-    sheet.save(update_fields=["data"])
+class MediaAssetViewSet(viewsets.ModelViewSet):
+    queryset = MediaAsset.objects.all().order_by("-uploaded_at")
+    serializer_class = MediaAssetSerializer
+    permission_classes = [permissions.AllowAny]
 
-    return JsonResponse({"id": sheet.id, "name": sheet.name, "data": sheet.data})
 
-@require_http_methods(["GET"])
-def list_media_sheets(request):
-    """
-    Возвращает актуальный список PDF-файлов из MEDIA_ROOT/sheets.
-    Если файл привязан к CharacterSheet.pdf — вернём id и name из БД,
-    иначе id=None и name=имя файла.
-    """
-    base = Path(settings.MEDIA_ROOT) / "sheets"
-    items = []
-
-    if base.exists():
-        # .iterdir() — без рекурсии. Если нужны подпапки — поменяем на rglob("*.pdf")
-        for p in sorted(base.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
-            if p.is_file() and p.suffix.lower() == ".pdf":
-                rel = f"sheets/{p.name}"  # то, как FileField хранит путь относительно MEDIA_ROOT
-                # Попробуем найти соответствующую запись в БД
-                try:
-                    s = CharacterSheet.objects.get(pdf=rel)
-                    items.append({
-                        "id": s.id,
-                        "name": s.name or p.name,
-                        "created_at": s.created_at.isoformat(),
-                        "file_url": settings.MEDIA_URL + rel
-                    })
-                except CharacterSheet.DoesNotExist:
-                    items.append({
-                        "id": None,
-                        "name": p.name,
-                        "created_at": None,
-                        "file_url": settings.MEDIA_URL + rel
-                    })
-    return JsonResponse(items, safe=False)
-
-@require_http_methods(["GET"])
+# --- Сервисные эндпоинты для заклинаний ---
+@api_view(["GET"])
 def spells_list(request):
-    """
-    Вернуть список заклинаний для дропдауна: [{slug, name}, …]
-    (можно вернуть и level/school/source, если захочешь использовать для подсказок)
-    """
     data = [{"slug": s["slug"], "name": s["name"]} for s in SPELLS]
-    return JsonResponse(data, safe=False)
+    return Response(data)
 
-@require_http_methods(["GET"])
-def spell_detail_view(request, slug: str):
+
+@api_view(["GET"])
+def spell_detail(request, slug: str):
     if not slug:
-        return HttpResponseBadRequest("slug required")
+        return Response({"error": "slug required"}, status=status.HTTP_400_BAD_REQUEST)
 
     TTL_SEC = 3600
     refresh = request.GET.get("refresh") == "1"
-
     obj = SpellCache.objects.filter(slug=slug).first()
-    if obj and obj.html and not refresh:
-        if (now() - obj.updated_at).total_seconds() < TTL_SEC:
-            return JsonResponse({"slug": slug, "html": obj.html})
 
-    # Только при отсутствии/просрочке кэша — один «дорогой» вызов в отдельном процессе
+    if obj and obj.html and not refresh:
+        age_sec = (now() - obj.updated_at).total_seconds()
+        if age_sec < TTL_SEC:
+            return Response({"slug": slug, "html": obj.html})
+
     html = fetch_spell_html_via_process(slug, timeout_sec=30)
 
     if obj:
-        if html and "Не удалось" not in html:
-            obj.html = html
-            obj.save(update_fields=["html", "updated_at"])
+        obj.html = html
+        obj.save(update_fields=["html", "updated_at"])
     else:
         obj = SpellCache.objects.create(slug=slug, html=html)
 
-    return JsonResponse({"slug": slug, "html": obj.html})
-
-@require_http_methods(["GET"])
-def api_rolls(request):
-    limit = int(request.GET.get('limit', 50))
-    limit = max(1, min(limit, 200))
-    data = [r.as_dict() for r in Roll.objects.order_by('-created_at')[:limit]]
-    return JsonResponse({"items": data})
-
-@require_http_methods(["POST"])
-def api_roll_create(request):
-    try:
-        payload = json.loads(request.body.decode('utf-8'))
-    except Exception:
-        return HttpResponseBadRequest("Invalid JSON")
-
-    expr = str(payload.get("expr", "")).strip()
-    total = payload.get("total")
-    breakdown = str(payload.get("breakdown", "")).strip()
-    character = str(payload.get("character", "")).strip()
-    spell = str(payload.get("spell", "")).strip()
-
-    if not expr or not isinstance(total, int):
-        return HttpResponseBadRequest("expr and total required")
-
-    r = Roll.objects.create(
-        expr=expr,
-        total=total,
-        breakdown=breakdown,
-        character=character,
-        spell=spell,
-        ip=(request.META.get('REMOTE_ADDR') or None),
-    )
-
-    item = r.as_dict()
-    # уведомим по WebSocket (если Channels настроен)
-    try:
-        from asgiref.sync import async_to_sync
-        from channels.layers import get_channel_layer
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "rolls", {"type": "roll.created", "item": item}
-        )
-    except Exception:
-        pass
-
-    return JsonResponse({"ok": True, "item": item}, status=201)
-
-# ============ Media API ============
-@require_http_methods(["GET", "POST"])
-def api_media_list_create(request: HttpRequest) -> JsonResponse:
-    if request.method == "GET":
-        kind = request.GET.get("kind")
-        folder_id = request.GET.get("folder_id")  # ⬅️
-        qs = MediaAsset.objects.all()
-        if kind in (MediaAsset.MEDIA_IMAGE, MediaAsset.MEDIA_AUDIO, MediaAsset.MEDIA_VIDEO):
-            qs = qs.filter(kind=kind)
-        if folder_id:
-            qs = qs.filter(folder_id=folder_id)    # ⬅️
-        limit = int(request.GET.get("limit", "50"))
-        limit = max(1, min(limit, 200))
-        items = [m.as_dict() for m in qs[:limit]]
-        return JsonResponse({"items": items})
-
-    # POST (multipart/form-data)
-    f = request.FILES.get("file")
-    kind = request.POST.get("kind")
-    title = (request.POST.get("title") or "").strip()
-    description = (request.POST.get("description") or "").strip()
-    folder_id = request.POST.get("folder_id")  # ⬅️
-
-    if not f or kind not in (MediaAsset.MEDIA_IMAGE, MediaAsset.MEDIA_AUDIO, MediaAsset.MEDIA_VIDEO):
-        return HttpResponseBadRequest("file and valid kind required")
-
-    folder = None
-    if folder_id:
-        try:
-            folder = MediaFolder.objects.get(pk=folder_id)
-        except MediaFolder.DoesNotExist:
-            folder = None
-
-    asset = MediaAsset.objects.create(
-        author=request.user if request.user.is_authenticated else None,
-        kind=kind,
-        file=f,
-        title=title,
-        description=description,
-        folder=folder,  # ⬅️ привязка к папке
-    )
-    item = asset.as_dict()
-    try:
-        from asgiref.sync import async_to_sync
-        from channels.layers import get_channel_layer
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)("art", {"type": "media.created", "item": item})
-    except Exception:
-        pass
-
-    return JsonResponse({"ok": True, "item": item}, status=201)
-
-@require_http_methods(["GET", "DELETE"])
-def api_media_detail(request: HttpRequest, pk: int) -> JsonResponse:
-    asset = get_object_or_404(MediaAsset, pk=pk)
-    if request.method == "GET":
-        return JsonResponse({"item": asset.as_dict()})
-    # DELETE (права в продакшне ограничить)
-    asset.delete()
-    return JsonResponse({"ok": True})
-
-# ===== Articles =====
-
-# ===== Articles =====
-@require_http_methods(["GET", "POST"])
-def api_articles_list_create(request: HttpRequest) -> JsonResponse:
-    if request.method == "GET":
-        limit = int(request.GET.get("limit", "50"))
-        limit = max(1, min(limit, 200))
-        qs = LoreArticle.objects.all()
-
-        # ⬇️ ФИЛЬТР ПО ПАПКЕ
-        folder_id = request.GET.get("folder_id")
-        if folder_id:
-            qs = qs.filter(folder_id=folder_id)
-
-        items = [a.as_dict() for a in qs[:limit]]
-        return JsonResponse({"items": items})
-
-    # POST multipart: title, excerpt?, content, cover?, gallery[], folder_id?
-    if request.content_type and request.content_type.startswith("multipart/form-data"):
-        title = (request.POST.get("title") or "").strip()
-        excerpt = (request.POST.get("excerpt") or "").strip()
-        content = (request.POST.get("content") or "").strip()
-        folder_id = request.POST.get("folder_id")  # ⬅️ ВАЖНО
-        cover: UploadedFile | None = request.FILES.get("cover")
-        gallery_files: List[UploadedFile] = request.FILES.getlist("gallery")
-
-        if not title or not content:
-            return HttpResponseBadRequest("title and content required")
-
-        # найдём папку, если указана; если модели нет поля folder — см. примечание ниже
-        folder = None
-        if folder_id:
-            try:
-                folder = LoreFolder.objects.get(pk=folder_id)
-            except LoreFolder.DoesNotExist:
-                folder = None
-
-        with transaction.atomic():
-            article = LoreArticle.objects.create(
-                title=title,
-                excerpt=excerpt,
-                content=content,
-                author=request.user if request.user.is_authenticated else None,
-                folder=folder,  # ⬅️ привязка к папке
-            )
-            if cover:
-                article.cover = cover
-                article.save(update_fields=["cover"])
-
-            for f in gallery_files:
-                LoreArticleImage.objects.create(article=article, image=f)
-
-        item = article.as_dict()
-        _ws_notify("art", "article", item)
-        return JsonResponse({"ok": True, "item": item}, status=201)
-
-    return HttpResponseBadRequest("multipart/form-data required")
-
-@require_http_methods(["GET"])
-def api_article_detail(request: HttpRequest, pk: int) -> JsonResponse:
-    article = get_object_or_404(LoreArticle, pk=pk)
-    return JsonResponse({"item": article.as_dict()})
-
-# ===== Article comments =====
-
-@require_http_methods(["GET", "POST"])
-def api_article_comments(request: HttpRequest, pk: int) -> JsonResponse:
-    article = get_object_or_404(LoreArticle, pk=pk)
-
-    if request.method == "GET":
-        items = [c.as_dict() for c in article.comments.all()]
-        return JsonResponse({"items": items})
-
-    # POST JSON: {"content": "..."}
-    try:
-        payload = json.loads(request.body.decode("utf-8"))
-    except Exception:
-        return HttpResponseBadRequest("Invalid JSON")
-    content = (payload.get("content") or "").strip()
-    if not content:
-        return HttpResponseBadRequest("content required")
-
-    c = LoreArticleComment.objects.create(
-        article=article,
-        content=content,
-        author=request.user if request.user.is_authenticated else None
-    )
-    item = c.as_dict()
-    _ws_notify("art", "lore_comment", item)  # realtime
-    return JsonResponse({"ok": True, "item": item}, status=201)
-
-@csrf_exempt
-@require_http_methods(["GET", "DELETE"])
-def api_article_detail(request, pk):
-    article = get_object_or_404(LoreArticle, pk=pk)
-    if request.method == "GET":
-        return JsonResponse({"item": article.as_dict()})
-    article.delete()
-    _ws_notify_silent("art", "article", {"deleted_id": pk})
-    return JsonResponse({"ok": True})
-
-@require_http_methods(["GET", "DELETE"])
-def api_media_detail(request, pk):
-    """
-    GET    /api/art/media/<id>/      -> {"item": {...}}
-    DELETE /api/art/media/<id>/      -> {"ok": true}
-    Права: автор файла или staff/superuser (рекомендуется).
-    В DEV можно временно ослабить до "любой аутентифицированный".
-    """
-    asset = get_object_or_404(MediaAsset, pk=pk)
-
-    if request.method == "GET":
-        return JsonResponse({"item": asset.as_dict()})
-
-    asset.file.delete(save=False)
-    asset.delete()
-
-    _ws_notify_silent("art", "media", {"deleted_id": pk})
-    return JsonResponse({"ok": True})
-
-# ===== helpers =====
-
-def _ws_notify(group: str, msg_type: str, item: dict) -> None:
-    """Отправка сообщения в группу WS (если настроены Channels). Тихо игнорируем, если в окружении нет слоя."""
-    try:
-        from asgiref.sync import async_to_sync
-        from channels.layers import get_channel_layer
-        ch = get_channel_layer()
-        if ch:
-            async_to_sync(ch.group_send)(group, {"type": f"{msg_type}", "item": item})
-    except Exception:
-        # отсутствие настроенного слоя или любая ошибка — молча
-        pass
-
-def _ws_notify_silent(group: str, msg_type: str, item: dict) -> None:
-    try:
-        from asgiref.sync import async_to_sync
-        from channels.layers import get_channel_layer
-        ch = get_channel_layer()
-        if ch:
-            async_to_sync(ch.group_send)(group, {"type": f"{msg_type}", "item": item})
-    except Exception:
-        pass
-
-class LoreFolderListCreate(generics.ListCreateAPIView):
-    queryset = LoreFolder.objects.all().order_by('title')
-    serializer_class = LoreFolderSerializer
-    permission_classes = [permissions.AllowAny]
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
-
-class LoreFolderDestroy(generics.DestroyAPIView):
-    queryset = LoreFolder.objects.all()
-    serializer_class = LoreFolderSerializer
-    permission_classes = [permissions.AllowAny]
-
-class MediaFolderListCreate(generics.ListCreateAPIView):
-    queryset = MediaFolder.objects.all().order_by('title')
-    serializer_class = MediaFolderSerializer
-    permission_classes = [permissions.AllowAny]
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user if self.request.user.is_authenticated else None)
-
-class MediaFolderDestroy(generics.DestroyAPIView):
-    queryset = MediaFolder.objects.all()
-    serializer_class = MediaFolderSerializer
-    permission_classes = [permissions.AllowAny]
+    return Response({"slug": slug, "html": obj.html})

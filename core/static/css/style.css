@@ -1,74 +1,85 @@
-/* ===== base.css — светлая «книжная» тема с духом старинных магических свитков =====
-   Цели:
-   - Светлая палитра (пергамент/чернила), вдохновлённая свитками и старинными книгами
-   - Мягкие тени, винтажные бордюры, больше «воздуха» (отступов) между всеми элементами
-   - Сохранены все ваши классы/структура, изменён только дизайн
-*/
-
-/* Палитра и тени — светлая */
+/* ===== Пергаментная светлая тема (универсальный бежевый стиль) ===== */
+/* Палитра, тени, радиусы */
 :root{
-  /* Пергаментная гамма */
-  --bg:#e9e1d1;           /* фон страницы — светлый пергамент */
-  --surface:#efe7d8;      /* крупные панели/поверхности */
-  --card:#f5efe2;         /* карточки/контентные блоки */
-  --ink:#3a2f28;          /* основной текст — «чернила» */
-  --muted:#6a5d54;        /* приглушённый текст */
-  --muted-2:#8a7c71;      /* ещё светлее для вторичных подписей */
-  --accent:#a06b2f;       /* тёплый акцент (золото/умбра) */
-  --accent-2:#6c8ca6;     /* холодный акцент (стальной/лазурь) */
+  --bg:#e9e1d1;
+  --surface:#efe7d8;
+  --card:#f6efe2;
+  --ink:#3a2f28;
+  --muted:#6a5d54;
+  --muted-2:#8a7c71;
 
-  /* Бордюры и обводки — «припылённый» коричневый */
+  --accent:#a06b2f;
+  --accent-2:#6c8ca6;
+  --good:#2f8f56;
+  --bad:#b1453e;
+
   --border:#cebfa6;
   --border-2:#c8b9a1;
-  --input:#f9f3e7;
+  --input:#fbf6ec;
 
-  --good:#2f8f56;         /* зелёные акценты */
-  --bad:#b1453e;          /* красные акценты */
-
-  --radius:14px;          /* чуть мягче скругления */
+  --radius:14px;
   --shadow:
-    0 10px 28px rgba(76,55,38,.12),
+    0 10px 28px rgba(76,55,38,.10),
     0 2px 10px rgba(76,55,38,.06),
     inset 0 1px 0 rgba(255,255,255,.65);
 
-  /* бордюр для инпутов/combo */
-  --input-border: var(--border-2);
-
-  /* Единые вертикальные отступы для «воздуха» */
   --gap-xxl: 28px;
   --gap-xl:  22px;
   --gap-lg:  16px;
   --gap-md:  12px;
   --gap-sm:  8px;
+
+  --topbar-h: 56px;
 }
 
-/* Базовая типографика — «книжный» шрифт и больше воздуха */
+/* Базовая типографика и фон */
 *{ box-sizing:border-box; }
-html,body{ height:100%; }
+html, body{ height:100%; }
 html{ scroll-behavior:smooth; }
 body{
   margin:0; padding:0;
   color:var(--ink);
   font:15px/1.6 "Georgia", "Libre Baskerville", "Merriweather", serif;
   background:
-    radial-gradient(1000px 700px at 100% -10%, rgba(154,126,90,.15), transparent 55%),
-    radial-gradient(800px 600px at -10% 110%, rgba(108,140,166,.12), transparent 60%),
+    radial-gradient(1000px 700px at 100% -10%, rgba(154,126,90,.12), transparent 55%),
+    radial-gradient(800px 600px at -10% 110%, rgba(108,140,166,.09), transparent 60%),
     var(--bg);
 }
 
-/* Шапка — «переплёт» с золотистым тиснением */
+/* Заголовки и базовые элементы текстов */
+h1,h2,h3,h4,h5,h6{
+  color:#4a3a2f;
+  margin:0 0 var(--gap-md);
+  line-height:1.25;
+}
+p{ margin: 10px 0 14px; }
+a{
+  color:var(--accent);
+  text-decoration:none;
+  border-bottom:1px dashed rgba(160,107,47,.35);
+}
+a:hover{ color:#7f5120; border-bottom-color: rgba(160,107,47,.6); }
+
+/* Списки и таблицы */
+ul,ol{ padding-left:24px; margin:8px 0 12px; }
+table{ width:100%; border-collapse:collapse; background:#fffdf7; border:1px solid var(--border-2); border-radius:12px; overflow:hidden; }
+th,td{ padding:10px 12px; border-bottom:1px solid var(--border-2); text-align:left; }
+th{ background:#f6ebd9; color:#5d4a3b; font-weight:800; }
+
+/* Шапка (тёплая «лента») */
 .site-topbar{
   position:sticky; top:0; z-index:100;
-  backdrop-filter: blur(4px);
   border-bottom:1px solid var(--border);
   background:
     linear-gradient(180deg, rgba(243,236,224,.92), rgba(239,231,216,.75)),
     var(--surface);
   box-shadow: 0 6px 18px rgba(76,55,38,.12);
+  backdrop-filter: blur(4px);
+  height: var(--topbar-h);
 }
 .topbar-inner{
-  max-width:1200px; margin:0 auto; padding:14px 20px;
-  display:flex; align-items:center; justify-content:space-between; gap:var(--gap-lg);
+  max-width:1200px; margin:0 auto; padding:10px 20px;
+  height:100%; display:flex; align-items:center; justify-content:space-between; gap:var(--gap-lg);
 }
 .brand{
   display:inline-flex; align-items:center; justify-content:center;
@@ -85,7 +96,7 @@ body{
 .topnav-link{
   display:inline-flex; align-items:center; justify-content:center;
   height:34px; padding:0 16px; min-width:128px;
-  color:var(--ink); text-decoration:none; font-weight:700; line-height:1;
+  color:var(--ink); font-weight:700; line-height:1;
   border:1px solid var(--border-2); border-radius:10px;
   background:linear-gradient(180deg, #fbf3e6, #f2e6d5);
   box-shadow:var(--shadow); transition:.18s ease;
@@ -96,7 +107,7 @@ body{
   background:linear-gradient(180deg, #f4debd, #eecf9e);
 }
 
-/* Каркас страницы с сайдбаром — больше зазоров */
+/* Каркас страницы с сайдбаром */
 .container.with-sidebar{
   max-width:1200px; margin:0 auto; padding:28px 20px 72px;
   display:grid; grid-template-columns: 1fr 340px; gap:var(--gap-xxl);
@@ -106,9 +117,9 @@ body{
   .sidebar{ order:3; }
 }
 
-/* Панель под шапкой — светлая лента фильтров */
+/* Верхняя панель инструментов */
 .toolbar{
-  grid-column:1 / -1; position:sticky; top:76px; z-index:10;
+  grid-column:1 / -1; position:sticky; top:calc(var(--topbar-h) + 8px); z-index:10;
   display:flex; gap:var(--gap-lg); align-items:center; flex-wrap:wrap;
   padding:14px; margin:-8px -8px var(--gap-xl);
   border:1px solid var(--border);
@@ -119,12 +130,12 @@ body{
 .toolbar h1{ margin:0; font-size:20px; font-weight:800; letter-spacing:.2px; }
 .spacer{ flex:1; }
 
+/* Основная сетка карточек */
 .main{ min-width:0; }
-
-/* Карточки/сетки/формы — «лист» */
 .cards{ display:grid; grid-template-columns:repeat(12,1fr); gap:var(--gap-xxl); }
 .card{
   grid-column:span 12;
+  margin-top:var(--gap-lg);
   background:linear-gradient(180deg, #fbf6ec, #f4ebdb);
   border:1px solid var(--border); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:20px;
@@ -134,6 +145,7 @@ body{
   display:flex; align-items:center; gap:var(--gap-sm);
 }
 
+/* Формы/поля */
 .grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:var(--gap-lg); }
 .field{ grid-column:span 12; display:flex; flex-direction:column; gap:6px; }
 .field.inline{ flex-direction:row; align-items:center; gap:10px; }
@@ -148,11 +160,11 @@ body{
 .field input:focus, .field textarea:focus, select:focus{
   border-color:#c38b3a; box-shadow:0 0 0 2px rgba(195,139,58,.18), inset 0 1px 0 rgba(255,255,255,.7);
 }
-.field textarea{ min-height:250px; resize:vertical; }
+.field textarea{ min-height:220px; resize:vertical; }
 .two{ grid-column:span 6; } .three{ grid-column:span 4; } .four{ grid-column:span 3; }
-.stack{ grid-column:span 12; }
+.stack{ grid-column: span 12; display: block; }
 
-/* Элементы UI — светлые, «бумажные» кнопки */
+/* Кнопки */
 .kbd{ font:11px ui-monospace; background:#f4ead8; border:1px solid #d1c2a9; padding:2px 6px; border-radius:6px; color:#6a5d54; }
 .tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#f3e8d7; border:1px solid #d8c8ac; color:#6b5b4c; font-size:12px; }
 .tag .dot{ width:6px; height:6px; border-radius:50%; background:#c38b3a; box-shadow:0 0 0 3px rgba(195,139,58,.18); }
@@ -173,9 +185,8 @@ body{
   background:linear-gradient(180deg, #f1f6f1, #e6efe7);
   border-radius:10px; padding:8px 12px; white-space:nowrap;
 }
-.btn.success:hover{ transform:translateY(-1px); }
 
-/* Сайдбар — «форзац» */
+/* Сайдбар и история бросков */
 .sidebar{
   background:linear-gradient(180deg, #fbf6ec, #f4ebdb);
   border:1px solid var(--border); border-radius:var(--radius);
@@ -191,80 +202,89 @@ body{
 .roll-history{ display:flex; flex-direction:column; gap:var(--gap-md); }
 .roll-item{
   border:1px solid var(--border-2); border-radius:12px; padding:10px 12px;
-  background:linear-gradient(180deg, #fff9ef, #faf1e3);
+  background:linear-gradient(180deg, #fff9ef, #faf1е3);
   box-shadow:var(--shadow);
 }
 .roll-item .meta{ color:#7b6a5e; font-size:12px; margin-bottom:4px; }
 .roll-item .result{ font-weight:800; color:#3d2f26; }
 .roll-item.highlight{
   background:linear-gradient(180deg, #f6e0bb, #efd19a);
-  transition:background 1.2s ease;
+  transition:background 1s ease;
 }
 
-/* Вкладки (/art) — закладки книги */
-.tabs-bar{
-  position:sticky; top:76px; z-index:9;
-  display:flex; gap:var(--gap-md); align-items:center; flex-wrap:wrap;
-  padding:10px; margin:-8px -8px var(--gap-xl);
-  border:1px solid var(--border);
-  background:linear-gradient(180deg, rgba(251,244,232,.9), rgba(247,238,224,.7));
-  backdrop-filter: blur(4px);
-  border-radius:12px;
+/* Вкладки (Tabs) */
+.sheet-tabs{
+  position: sticky;
+  top: calc(var(--topbar-h) + 8px);
+  z-index: 6;
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; margin: 0 0 12px;
+  background: linear-gradient(180deg, #fbf3e6, #f2e6d5);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }
-.tab-link{
-  display:inline-flex; align-items:center; justify-content:center;
-  height:32px; padding:0 14px; min-width:120px; line-height:1;
-  color:#4a3а2f; text-decoration:none; font-weight:700;
-  border:1px solid var(--border-2); border-radius:10px;
-  background:linear-gradient(180deg, #fbf3e6, #f2e6d5);
-  transition:.18s ease;
+.sheet-tabs .tab-btn{
+  appearance: none;
+  background: linear-gradient(180deg, #fff6e9, #f6ebd9);
+  color: #4a3a2f;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: .18s ease;
 }
-.tab-link:hover{ transform:translateY(-1px); border-color:#bda47f; }
-.tab-link.active{
+.sheet-tabs .tab-btn:hover{ transform: translateY(-1px); border-color:#bda47f; }
+.sheet-tabs .tab-btn.active{
+  color:#5b3b1c; border-color:#c38b3а;
+  background: linear-gradient(180deg, #f4debd, #eecf9е);
+}
+
+/* Оглавление (TOC) */
+.sheet-toc{
+  position: sticky;
+  top: calc(var(--topbar-h) + 8px);
+  z-index: 5;
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; margin: 0 0 12px;
+  background: linear-gradient(180deg, #fbf3e6, #f2e6d5);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.sheet-toc a{
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #4a3a2f;
+  text-decoration: none;
+  border: 1px solid var(--border-2);
+  background: linear-gradient(180deg, #fff6e9, #f6ebd9);
+}
+.sheet-toc a:hover{ transform: translateY(-1px); border-color:#bda47f; }
+.sheet-toc a.active{
   color:#5b3b1c; border-color:#c38b3a;
-  background:linear-gradient(180deg, #f4debd, #eecf9e);
-}
-.tab-panel{ display:none; }
-.tab-panel.active{ display:block; }
-.tab-cards{ display:grid; grid-template-columns:repeat(12,1fr); gap:var(--gap-xxl); }
-
-/* Медиа внутри карточек */
-.card img, .card video, .card audio{ display:block; width:100%; border-radius:12px; }
-.card audio{ width:100%; }
-
-/* Общие инпуты — светлые */
-input[type="number"], textarea, select{
-  width:100%; min-height:40px; font:inherit; color:var(--ink);
-  background:var(--input); border:1px solid var(--border-2); border-radius:12px;
-  padding:10px 12px; outline:none; transition:.18s ease; box-sizing:border-box;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
-}
-input[type="number"]:focus, textarea:focus, select:focus{
-  border-color:#c38b3а; box-shadow:0 0 0 2px rgba(195,139,58,.18), inset 0 1px 0 rgba(255,255,255,.7);
+  background: linear-gradient(180deg, #f4debd, #eecf9e);
 }
 
-/* Аватар — винтажная рамка */
-.avatar{ display:flex; align-items:center; gap:14px; }
-.avatar .preview{
-  width:120px; height:120px; border-radius:16px; border:1px solid var(--border-2);
-  background:#f7ead6 center/cover no-repeat; box-shadow:var(--shadow);
-}
+/* Секции-листы (для вкладок) */
+.sheet-section.hidden{ display: none !important; }
 
-/* ===== Магия (заклинания) — ключевые элементы ===== */
-
-/* Заголовок уровня */
+/* Компоненты заклинаний */
 .level-head{
   display:flex; gap:var(--gap-md); align-items:center; justify-content:space-between;
   margin:var(--gap-lg) 0 var(--gap-md);
 }
 .lvl-title{ font-weight:800; color:#4a3a2f; }
 
-/* Строка заклинания — светлый «лист» */
+/* Строка заклинания */
 .spell-line{
-  gap:var(--gap-md); align-items:flex-start;
-  padding:12px 14px; margin-bottom:var(--gap-lg);
+  display:block;
+  width:100%;
+  margin-bottom:var(--gap-lg);
+  margin-top:var(--gap-lg);
+  padding:12px 14px;
   background:linear-gradient(180deg, #fff9ef, #faf1e3);
-  border:1px solid var(--input-border);
+  border:1px solid var(--border-2);
   border-radius:12px;
   box-shadow:var(--shadow);
   transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
@@ -276,18 +296,16 @@ input[type="number"]:focus, textarea:focus, select:focus{
 }
 .spell-line .muted{ color:var(--muted); }
 
-/* Комбобокс-поиск */
-.combo{ position:relative; flex:1; min-width:240px; }
+/* Комбо-поле выбора заклинания */
+.combo{ position:relative; min-width:240px; }
 .combo .combo-input{
   width:100%; background:transparent; border:none; outline:none;
   padding:4px 0; min-height:28px; color:var(--ink); font:inherit;
 }
 .combo .combo-input::placeholder{ color:var(--muted); }
-
-/* Выпадающий список — «листок» */
 .combo .combo-list{
   position:absolute; left:0; right:0; top:calc(100% + 8px);
-  background:#fffaf0; border:1px solid var(--input-border);
+  background:#fffaf0; border:1px solid var(--border-2);
   border-radius:12px; max-height:280px; overflow:auto;
   box-shadow:var(--shadow); z-index:20; display:none;
 }
@@ -297,152 +315,217 @@ input[type="number"]:focus, textarea:focus, select:focus{
   transition:background .12s ease;
 }
 .combo .combo-item:hover{ background:#f8eedf; }
-.combo .combo-item .muted{
-  color:var(--muted); font-size:12px; margin-left:auto;
-}
+.combo .combo-item .muted{ color:var(--muted); font-size:12px; margin-left:auto; }
 
 /* Кнопки в строке заклинания */
 .spell-line .btn{
-  appearance:none; border:1px solid var(--input-border);
+  border:1px solid var(--border-2);
   background:linear-gradient(180deg, #fbf3e6, #efe2cf);
   color:#4a3a2f; padding:8px 12px; border-radius:10px; cursor:pointer;
   box-shadow:var(--shadow);
   transition:transform .18s ease, border-color .18s ease, background .18s ease;
   font-weight:700; white-space:nowrap; line-height:1;
+  margin-right:8px;
 }
 .spell-line .btn:hover{ transform:translateY(-1px); border-color:#bda47f; }
 .spell-line .btn.success{
   color:#3e5b47; background:linear-gradient(180deg, #f1f6f1, #e6efe7);
 }
-
-/* Отдельные кнопки */
 .spell-more-btn{
-  color:#4a3a2f; border:1px solid var(--input-border);
+  color:#4a3a2f; border:1px solid var(--border-2);
   background:linear-gradient(180deg, #fbf3e6, #efe2cf);
   border-radius:10px; padding:8px 12px; cursor:pointer; white-space:nowrap;
-  box-shadow:var(--shadow);
-  transition:transform .18s ease, border-color .18s ease, background .18s ease;
-  font-weight:700;
+  box-shadow:var(--shadow); font-weight:700; margin-right:8px;
 }
-.spell-more-btn:hover{ transform:translateY(-1px); border-color:#bda47f; }
-
 .spell-del-btn{
   color:#6a3a35; border:1px solid #d8b2ad;
   background:linear-gradient(180deg, #fbeae8, #f4d7d3);
   border-radius:10px; padding:8px 12px; cursor:pointer; white-space:nowrap;
-  box-shadow:var(--shadow);
-  transition:transform .18s ease, border-color .18s ease, background .18s ease;
-  font-weight:700;
+  box-shadow:var(--shadow); font-weight:700;
 }
-.spell-del-btn:hover{ transform:translateY(-1px); border-color:#c99b95; }
 
 /* Детали заклинания */
 .spell-detail{
-  margin-top:var(--gap-md); padding:12px 14px;
-  background:#fff9ef; border:1px solid var(--input-border);
-  border-radius:12px; display:none; width:100%;
-  box-shadow:var(--shadow);
+  display:none; width:100%; margin-top:var(--gap-md);
+  background: linear-gradient(180deg, #fff9ef, #faf1e3);
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }
 .spell-detail.show{ display:block; }
 
-/* Чистый HTML заклинания (таблица/текст) */
-.spell-clean{ display:block; margin-top:6px; }
-.spell-clean .spell-table{
-  width:100%; border-collapse:collapse; margin:10px 0 14px;
-  border:1px solid var(--input-border); border-radius:12px; overflow:hidden;
-  background:#fffdf7;
-}
-.spell-clean .spell-table th, .spell-clean .spell-table td{
-  text-align:left; padding:10px 12px; border-bottom:1px solid var(--input-border);
-  vertical-align:top; font-size:14px;
-}
-.spell-clean .spell-table th{ width:200px; color:#6a5d54; font-weight:800; }
-.spell-clean .spell-text p{ margin:10px 0; }
-
-/* Встроенная панель бросков */
+/* Панель бросков */
 .dice-panel{
   margin-top:var(--gap-md); padding:12px 14px;
-  background:#fff9ef; border:1px solid var(--input-border); border-radius:12px;
+  background:#fff9ef; border:1px solid var(--border-2); border-radius:12px;
   box-shadow:var(--shadow);
 }
-.dice-row{ display:flex; gap:var(--gap-md); flex-wrap:wrap; }
-.dice-row .field{ flex:1 1 180px; display:flex; flex-direction:column; gap:6px; }
-.dice-actions{ display:flex; gap:var(--gap-md); margin-top:var(--gap-md); }
-
-.collapsible .collapsible-head{
-  display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;
+.dice-row{
+  display:flex; gap:var(--gap-md); flex-wrap:wrap;
 }
-.collapsible.collapsed .collapsible-body{ display:none; }
-.btn.ghost{
-  background:transparent; border:1px solid var(--border-2); color:inherit; opacity:.8;
+.dice-row .field{
+  flex:1 1 200px; min-width:200px;
+  display:flex; flex-direction:column; gap:6px;
 }
-.btn.ghost:hover{ opacity:1; }
+.dice-actions{
+  display:flex; gap:var(--gap-md); margin-top:var(--gap-md);
+}
 
-/* Адаптация под узкий экран */
+/* Тосты/уведомления */
+.toast{
+  position:fixed; right:16px; bottom:16px;
+  padding:10px 14px; border-radius:10px;
+  border:1px solid var(--border-2);
+  background:linear-gradient(180deg, #fff6e9, #f6ebd9);
+  color:#4a3a2f; box-shadow:var(--shadow); z-index:9999;
+}
+.toast.success{ border-color:#c7d7c7; background:linear-gradient(180deg,#f1f6f1,#e6efe7); color:#2d4b38; }
+.toast.error{ border-color:#e0b3ad; background:linear-gradient(180deg,#fdeceb,#f7dad6); color:#6e2d28; }
+
+/* Карта */
+.map-embed{
+  position:relative; z-index:1; border:1px solid var(--border-2);
+  border-radius:12px; overflow:hidden; margin:16px 0;
+  box-shadow:0 8px 24px rgba(0,0,0,.08);
+  background:var(--card);
+}
+.map-canvas-wrap{ position:relative; height:60vh; min-height:360px; overflow:hidden; cursor:grab; }
+.map-canvas-wrap.is-dragging{ cursor:grabbing; }
+.map-canvas{ position:relative; display:inline-block; transform-origin:0 0; }
+.map-canvas img{ display:block; image-rendering:auto; -webkit-user-drag:none; user-select:none; pointer-events:none; }
+.map-toolbar{
+  display:flex; align-items:center; gap:8px; padding:8px 10px;
+  border-bottom:1px solid var(--border-2); background:linear-gradient(180deg,#fbf3e6,#f2e6d5);
+}
+.map-toolbar .btn{
+  border:1px solid var(--border-2);
+  padding:6px 10px; border-radius:8px; font-size:14px;
+}
+.map-toolbar .btn.ghost{ background:transparent; border:1px solid var(--border-2); }
+.map-zoom-indicator{ margin-left:auto; font-size:12px; opacity:.8; }
+.map-embed.collapsed .map-canvas-wrap{ display:none; }
+
+/* Модалки */
+.modal{ background:rgba(58,47,40,.25); backdrop-filter: blur(2px); }
+.modal .modal-dialog{
+  background:var(--card); border:1px solid var(--border-2); border-radius:14px; box-shadow:var(--shadow);
+}
+
+/* Аватар */
+#avatarPreview{
+  background-color:#f7ead6;
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+}
+#avatarPreview[style*="background-image"]{ background-image: inherit; }
+
+/* Подсветка активных ссылок/кнопок разделов */
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+.section-links a.topnav-link.active,
+.btn[data-jump].active{
+  border-color:#c38b3a;
+  background:linear-gradient(180deg, #f4debd, #eecf9e);
+  color:#5b3b1c;
+}
+
+/* ===== Глобально: number-инпуты в стиле темы ===== */
+.field input[type="number"]{
+  font: inherit;
+  color: var(--ink);
+  background: var(--input);
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-height: 40px;
+  line-height: 1.2;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+  width: 100%;
+  box-sizing: border-box;
+}
+.field input[type="number"]:focus{
+  outline: none;
+  border-color: #c38b3a;
+  box-shadow: 0 0 0 2px rgba(195,139,58,.18), inset 0 1px 0 rgba(255,255,255,.7);
+}
+.field input[type="number"]::-webkit-outer-spin-button,
+.field input[type="number"]::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+.field input[type="number"]{ -moz-appearance: textfield; }
+
+/* ===== Унификация в панели бросков ===== */
+.dice-panel .field input[type="number"],
+.dice-panel .field input[type="text"],
+.dice-panel .field select{
+  font: inherit;
+  color: var(--ink);
+  background: var(--input);
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-height: 40px;
+  line-height: 1.2;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+  width: 100%;
+  box-sizing: border-box;
+  appearance: textfield;
+}
+.dice-panel .field input[type="number"]::-webkit-outer-spin-button,
+.dice-panel .field input[type="number"]::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+.dice-panel .field input[type="number"]{ -moz-appearance: textfield; }
+.dice-panel .field input[type="number"]:focus,
+.dice-panel .field input[type="text"]:focus,
+.dice-panel .field select:focus{
+  outline: none;
+  border-color: #c38b3a;
+  box-shadow: 0 0 0 2px rgba(195,139,58,.18), inset 0 1px 0 rgba(255,255,255,.7);
+}
+
+/* Гарантия темы для количества кубиков */
+input[type="number"].dice-count,
+input[type="number"][title^="Сколько кубиков бросить"]{
+  font: inherit !important;
+  color: var(--ink) !important;
+  background: var(--input) !important;
+  border: 1px solid var(--border-2) !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  min-height: 40px !important;
+  line-height: 1.2 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6) !important;
+  appearance: textfield !important;
+  height: auto !important;
+}
+input[type="number"].dice-count:focus,
+input[type="number"][title^="Сколько кубиков бросить"]:focus{
+  outline: none !important;
+  border-color: #c38b3a !important;
+  box-shadow: 0 0 0 2px rgba(195,139,58,.18), inset 0 1px 0 rgba(255,255,255,.7) !important;
+}
+input[type="number"].dice-count::-webkit-outer-spin-button,
+input[type="number"].dice-count::-webkit-inner-spin-button,
+input[type="number"][title^="Сколько кубиков бросить"]::-webkit-outer-spin-button,
+input[type="number"][title^="Сколько кубиков бросить"]::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"].dice-count,
+input[type="number"][title^="Сколько кубиков бросить"]{
+  -moz-appearance: textfield;
+}
+input[type="number"].dice-count.w-compact,
+
+/* Мобильные правки */
 @media (max-width:720px){
-  .spell-line{ flex-wrap:wrap; }
   .spell-line .btn,
   .spell-more-btn,
   .spell-del-btn{ padding:7px 10px; }
-}
-
-/* ===== Карта (встроенная, без разворачивания) ===== */
-
-/* Блок карты по умолчанию в колонке (без режима разворота) */
-.map-embed{
-  position:relative;
-  z-index:1;
-  border:1px solid rgba(0,0,0,.08);
-  border-radius:12px;
-  overflow:hidden;
-  margin:16px 0;
-  box-shadow:0 8px 24px rgba(0,0,0,.10);
-}
-
-/* Внутренности карты не ограничивать шириной */
-.map-embed .map-canvas-wrap,
-.map-embed .map-canvas,
-.map-embed .map-canvas img{
-  max-width:none !important;
-}
-
-.map-canvas-wrap{
-  position:relative;
-  height:60vh;              /* можно настроить под задачу */
-  min-height:360px;
-  overflow:hidden;          /* перетаскивание мышью, без полос */
-  cursor:grab;
-}
-.map-canvas-wrap.is-dragging{ cursor:grabbing; }
-
-.map-canvas{
-  position:relative;
-  display:inline-block;
-  transform-origin:0 0;
-}
-.map-canvas img{
-  display:block;
-  image-rendering:auto;
-  -webkit-user-drag:none; user-select:none; pointer-events:none;
-}
-
-/* Тулбар карты */
-.map-toolbar{
-  display:flex; align-items:center; gap:8px;
-  padding:8px 10px;
-  border-bottom:1px solid rgba(0,0,0,.08);
-}
-.map-toolbar .btn{
-  border:none;
-  padding:6px 10px; border-radius:8px; cursor:pointer; font-size:14px;
-}
-.map-toolbar .btn.ghost{ background:transparent; border:1px solid rgba(0,0,0,.12); }
-.map-zoom-indicator{ margin-left:auto; font-size:12px; opacity:.8; }
-
-.map-embed.collapsed .map-canvas-wrap{
-  display: none;
-}
-.map-embed.collapsed{
-  /* чуть меньшая тень/отступы, чтобы не перетягивала внимание */
-  box-shadow:0 4px 16px rgba(0,0,0,.08);
 }

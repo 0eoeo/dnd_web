@@ -35,16 +35,27 @@ export function makeInput(name, label, isLong=false, layout='three'){
   return wrap;
 }
 
+function renderGroupSection(group) {
+  const section = document.createElement('section');
+  section.className = 'card sheet-section';
+  section.id = `sec-${group.id}`; // sec-core, sec-abilities, ...
+  section.setAttribute('data-title', group.title);
+
+  section.appendChild(el('h2', {}, group.title));
+
+  const grid = el('div', { class: 'grid' });
+  section.appendChild(grid);
+
+  return { section, grid };
+}
+
 export function renderNonMagic(){
   for (const group of FIELD_GROUPS){
-    const card = el('section',{class:'card'});
-    card.appendChild(el('h2',{},group.title));
-    const grid = el('div',{class:'grid'});
-    card.appendChild(grid);
+    const { section, grid } = renderGroupSection(group);
     for (const [rawName,label] of (group.fields||[])){
       const name = normalizeName(rawName);
       grid.appendChild( makeInput(name, label, group.long?.includes(name), group.layout) );
     }
-    cards.appendChild(card);
+    cards.appendChild(section);
   }
 }

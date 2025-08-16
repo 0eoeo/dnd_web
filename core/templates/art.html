@@ -2,306 +2,315 @@
 {% load static %}
 <html lang="ru">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>Творчество кампании — Лор, Иллюстрации, Видео, Музыка</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <style>
-        /* Специфика «Лор как статьи» */
-        .articles{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; margin-top: 10px;}
-        .article-card{
-          grid-column:span 12;
-          border:1px solid var(--border); border-radius:var(--radius);
-          box-shadow:var(--shadow); overflow:hidden;
-        }
-        .article-cover{ display:block; width:100%; height:220px; object-fit:cover; background:#0b0f15; }
-        .article-body{ padding:16px; }
-        .article-title{ margin:0 0 8px; font-size:18px; font-weight:800; }
-        .article-meta{ display:flex; gap:12px; align-items:center; color:var(--muted); font-size:12px; margin-bottom:10px; }
-        .article-excerpt{ margin:0 0 12px; }
-        .article-actions{ display:flex; gap:8px; }
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Творчество кампании — Лор, Иллюстрации, Видео, Музыка</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <style>
+    /* Лёгкие локальные добивки под страницу */
+    .articles{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; margin-top: 10px;}
+    .article-card{
+      grid-column:span 12;
+      border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:var(--shadow); overflow:hidden;
+      background: var(--card);
+    }
+    .article-cover{ display:block; width:100%; height:220px; object-fit:cover; background:#ddd; }
+    .article-body{ padding:16px; }
+    .article-title{ margin:0 0 8px; font-size:18px; font-weight:800; }
+    .article-meta{ display:flex; gap:12px; align-items:center; color:var(--muted); font-size:12px; margin-bottom:10px; }
+    .article-excerpt{ margin:0 0 12px; }
+    .article-actions{ display:flex; gap:8px; }
 
-        /* Просмотр одной статьи */
-        .article-view .article-title{ font-size:22px; }
-        .article-content{ line-height:1.6; }
-        .article-gallery{ margin-top:12px; display:grid; grid-template-columns:repeat(12,1fr); gap:8px; }
-        .article-gallery img{ grid-column:span 6; width:100%; border-radius:12px; }
-        @media (max-width:720px){ .article-gallery img{ grid-column:span 12; } }
+    .article-view .article-title{ font-size:22px; }
+    .article-content{ line-height:1.6; }
+    .article-gallery{ margin-top:12px; display:grid; grid-template-columns:repeat(12,1fr); gap:8px; }
+    .article-gallery img{ grid-column:span 6; width:100%; border-radius:12px; }
+    @media (max-width:720px){ .article-gallery img{ grid-column:span 12; } }
 
-        /* Комментарии */
-        .comments{ margin-top:16px; }
-        .comment-item{ border:1px solid var(--border-2); border-radius:10px; padding:10px; }
-        .comment-meta{ color:var(--muted); font-size:12px; margin-bottom:6px; }
-        .comment-form .btn{ align-self:flex-start; }
+    .comments{ margin-top:16px; }
+    .comment-item{ border:1px solid var(--border-2); border-radius:10px; padding:10px; background: var(--card); }
+    .comment-meta{ color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .comment-form .btn{ align-self:flex-start; }
 
-        /* Редактор статьи */
-        .editor-row{ display:grid; grid-template-columns:repeat(12,1fr); gap:12px; }
-        .editor .field{ grid-column:span 12; }
-        .editor .field.two{ grid-column:span 6; }
-        .editor .gallery-uploader{ display:flex; gap:8px; flex-wrap:wrap; }
-        .thumb{ width:96px; height:72px; border-radius:10px; border:1px solid var(--border-2); background:#0b0f15 center/cover no-repeat; }
+    .editor-row{ display:grid; grid-template-columns:repeat(12,1fr); gap:12px; }
+    .editor .field{ grid-column:span 12; }
+    .editor .field.two{ grid-column:span 6; }
+    .editor .gallery-uploader{ display:flex; gap:8px; flex-wrap:wrap; }
+    .thumb{ width:96px; height:72px; border-radius:10px; border:1px solid var(--border-2); background:#ddd center/cover no-repeat; }
 
-        /* Кнопки опасных действий */
-        .btn.danger{
-          color:#fff;
-          background:linear-gradient(180deg, #ef4444, #b91c1c);
-          border-color:#b91c1c;
-        }
-        .btn.danger:hover{ transform:translateY(-1px); border-color:#991b1b; }
+    .btn.danger{
+      color:#fff;
+      background:linear-gradient(180deg, #ef4444, #b91c1c);
+      border-color:#b91c1c;
+    }
+    .btn.danger:hover{ transform:translateY(-1px); border-color:#991b1b; }
 
-        /* Папки */
-        .folders { margin-bottom:16px; }
-        .folder-card {
-          padding:8px 12px;
-          border:1px solid var(--border-2);
-          border-radius:10px;
-          margin-bottom:6px;
-          cursor:pointer;
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-        }
-        .folder-actions { display:flex; gap:6px; }
-    </style>
+    .folders { margin-bottom:16px; }
+    .folder-card {
+      padding:8px 12px;
+      border:1px solid var(--border-2);
+      border-radius:10px;
+      margin-bottom:6px;
+      cursor:pointer;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background: var(--card);
+    }
+    .folder-card.active{ border-color:#c38b3a; }
+    .folder-actions { display:flex; gap:6px; }
+
+    .collapsible .collapsible-head{
+      display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;
+    }
+    .collapsible.collapsed .collapsible-body{ display:none; }
+
+    /* Панели-вкладки */
+    .tab-panel{ display:none; }
+    .tab-panel.active{ display:block; }
+
+    /* Ссылки разделов в сайдбаре */
+    .section-links a.topnav-link{
+      margin-bottom:6px; text-align:center;
+    }
+  </style>
 </head>
 <body>
 <header class="site-topbar">
-    <div class="topbar-inner">
-        <a class="brand" href="/">DnD</a>
-        <nav class="topnav">
-            <a class="topnav-link" href="/viewer">Лист персонажа</a>
-            <a class="topnav-link" href="/art" aria-current="page">Творчество</a>
-        </nav>
-    </div>
+  <div class="topbar-inner">
+    <a class="brand" href="/">DnD</a>
+    <nav class="topnav">
+      <a class="topnav-link" href="/viewer">Лист персонажа</a>
+      <a class="topnav-link" href="/art" aria-current="page">Творчество</a>
+    </nav>
+  </div>
 </header>
 
 <div class="container with-sidebar">
-    <div class="toolbar">
-        <h1>Творчество кампании</h1>
-        <span class="tag"><span class="dot"></span> SHREK GAMES</span>
-    </div>
+  <div class="toolbar">
+    <h1>Творчество кампании</h1>
+    <span class="tag"><span class="dot"></span> SHREK GAMES</span>
+  </div>
 
-    <div class="main">
-        <!-- ЛОР -->
-        <section id="tab-lore" class="tab-panel active" role="tabpanel">
-            <!-- Папки статей -->
-            <section class="folders card" id="articleFolders">
-                <h2>Папки</h2>
-                <div id="foldersList" class="inline"></div>
-                <form id="folderForm" class="grid" style="margin-top:10px;">
-                    <div class="field two">
-                        <input type="text" name="title" placeholder="Новая папка" required>
-                    </div>
-                    <div class="field">
-                        <button class="btn" type="button" id="createLoreFolderBtn">Создать папку</button>
-                    </div>
-                </form>
-            </section>
+  <div class="main">
+    <!-- ЛОР -->
+    <section id="tab-lore" class="tab-panel active" role="tabpanel">
+      <!-- Папки статей -->
+      <section class="folders card" id="articleFolders">
+        <h2>Папки</h2>
+        <div id="foldersList" class="inline"></div>
+        <form id="folderForm" class="grid" style="margin-top:10px;">
+          <div class="field two">
+            <input type="text" name="title" placeholder="Новая папка" required>
+          </div>
+          <div class="field">
+            <button class="btn" type="button" id="createLoreFolderBtn">Создать папку</button>
+          </div>
+        </form>
+      </section>
 
-            <!-- Редактор новой статьи -->
-            <section class="editor card collapsible" id="articleEditor">
-                <div class="collapsible-head">
-                    <h2>Новая статья</h2>
-                    <button class="btn ghost" data-collapse="#articleEditor" aria-expanded="true">Свернуть</button>
-                </div>
-                <div class="collapsible-body">
-                    <form id="articleForm" class="editor-row">
-                        <div class="field">
-                            <label>Заголовок</label>
-                            <input type="text" name="title" placeholder="Например, История Америса" required>
-                        </div>
-                        <div class="field">
-                            <label>Краткое описание (для списка)</label>
-                            <input type="text" name="excerpt" placeholder="1–2 предложения, чтобы зацепить читателя">
-                        </div>
-                        <div class="field">
-                            <label>Содержимое статьи</label>
-                            <textarea name="content" placeholder="Поддерживаются абзацы и базовая разметка"
-                                      required></textarea>
-                        </div>
-                        <div class="field two">
-                            <label>Обложка (опционально)</label>
-                            <input type="file" name="cover" accept="image/*">
-                        </div>
-                        <div class="field two">
-                            <label>Галерея (несколько изображений, опционально)</label>
-                            <input type="file" name="gallery" accept="image/*" multiple>
-                        </div>
-                        <div class="field two">
-                            <label>Папка</label>
-                            <select name="folder_id" id="articleFolderSelect">
-                                <option value="">Без папки</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <div id="galleryPreview" class="gallery-uploader"></div>
-                        </div>
-                        <div class="field">
-                            <button class="btn primary" type="submit">Опубликовать статью</button>
-                        </div>
-                    </form>
-                </div>
-            </section>
-
-            <!-- Список статей -->
-            <section class="articles" id="articlesList"></section>
-
-            <!-- Просмотр одной статьи -->
-            <section class="article-view card" id="articleView" style="display:none;">
-                <img id="viewCover" class="article-cover" alt="" style="display:none;">
-                <div class="article-body">
-                    <h2 id="viewTitle" class="article-title"></h2>
-                    <div id="viewMeta" class="article-meta"></div>
-                    <div id="viewContent" class="article-content"></div>
-                    <div id="viewGallery" class="article-gallery"></div>
-
-                    <div class="comments">
-                        <h3 style="margin:16px 0 10px;">Комментарии</h3>
-                        <div id="commentList" class="roll-history" data-topic-id=""></div>
-                        <form id="commentForm" class="comment-form grid" style="margin-top:10px;">
-                            <div class="field">
-                                <label>Комментарий</label>
-                                <textarea name="content" required placeholder="Оставьте своё мнение"></textarea>
-                            </div>
-                            <div class="field">
-                                <button class="btn" type="submit">Отправить</button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="article-actions" style="margin-top:12px;">
-                        <button class="btn" id="backToList">← Назад к статьям</button>
-                        <button class="btn danger" id="deleteArticleBtn" title="Удалить статью навсегда">Удалить
-                            статью
-                        </button>
-                    </div>
-                </div>
-            </section>
-        </section>
-
-        <!-- Медиа (Иллюстрации) -->
-        <section id="tab-images" class="tab-panel" role="tabpanel">
-            <div class="tab-cards">
-                <!-- Папки для медиа -->
-                <section class="folders card" id="mediaFolders">
-                    <h2>Папки</h2>
-                    <div id="mediaFoldersList" class="grid"></div>
-                    <form id="mediaFolderForm" class="grid" style="margin-top:10px;">
-                        <div class="field two">
-                            <input type="text" name="title" placeholder="Новая папка" required>
-                        </div>
-                        <div class="field">
-                            <button class="btn" type="button" id="createMediaFolderBtn">Создать папку</button>
-                        </div>
-                    </form>
-                </section>
-
-                <section class="card collapsible" id="mediaUploader" style="grid-column: span 12;">
-                    <div class="collapsible-head">
-                        <h2>Медиа: загрузка</h2>
-                        <button class="btn ghost" data-collapse="#mediaUploader" aria-expanded="true">Свернуть</button>
-                    </div>
-                    <div class="collapsible-body">
-                        <form id="mediaForm" class="grid">
-                            <div class="field three">
-                                <label>Тип</label>
-                                <select name="kind" required>
-                                    <option value="image">Картинка</option>
-                                    <option value="audio">Аудио</option>
-                                    <option value="video">Видео</option>
-                                </select>
-                            </div>
-                            <div class="field three">
-                                <label>Название</label>
-                                <input type="text" name="title" placeholder="Название">
-                            </div>
-                            <div class="field three">
-                                <label>Описание</label>
-                                <input type="text" name="description" placeholder="Короткое описание">
-                            </div>
-                            <div class="field three">
-                                <label>Файл</label>
-                                <input type="file" name="file" required accept="image/*,audio/*,video/*">
-                            </div>
-                            <div class="field three">
-                                <label>Папка</label>
-                                <select name="folder_id" id="mediaFolderSelect">
-                                    <option value="">Без папки</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <button class="btn primary" type="submit">Загрузить</button>
-                            </div>
-                        </form>
-                    </div>
-                </section>
-
-                <section class="card" style="grid-column: span 12;">
-                    <h2>Медиа: последние</h2>
-                    <div id="mediaList" class="grid"></div>
-                </section>
-            </div>
-        </section>
-
-        <section id="tab-video" class="tab-panel" role="tabpanel">
-            <div class="tab-cards">
-                <section class="card" style="grid-column: span 12;">
-                    <h2>Видео</h2>
-                    <div class="grid">
-                        <div class="field two">
-                            <label>Трейлер сессии</label>
-                            <div class="pill">
-                                <video controls style="width:100%; border-radius:12px; background:#000;">
-                                    <source src="{% static 'media/sample.mp4' %}" type="video/mp4">
-                                </video>
-                            </div>
-                        </div>
-                        <div class="field two">
-                            <label>Клипы</label>
-                            <p class="muted">Добавьте лучшие моменты или записи стримов.</p>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </section>
-
-        <section id="tab-music" class="tab-panel" role="tabpanel">
-            <div class="tab-cards">
-                <section class="card" style="grid-column: span 12;">
-                    <h2>Музыка</h2>
-                    <div class="grid">
-                        <div class="field two">
-                            <label>Тема кампании</label>
-                            <audio controls style="width:100%;">
-                                <source src="{% static 'media/theme.mp3' %}" type="audio/mpeg">
-                            </audio>
-                        </div>
-                        <div class="field two">
-                            <label>Плейлист сессии</label>
-                            <p class="muted">Соберите подборку треков для битв, путешествий и отдыха у костра.</p>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </section>
-    </div>
-
-    <aside class="sidebar">
-        <div class="sidebar-inner">
-            <div class="dice-panel">
-                <h3>Разделы</h3>
-                <div class="roll-history">
-                    <a class="topnav-link" href="#lore">Лор</a>
-                    <a class="topnav-link" href="#images">Иллюстрации</a>
-                    <a class="topnav-link" href="#video">Видео</a>
-                    <a class="topnav-link" href="#music">Музыка</a>
-                </div>
-            </div>
+      <!-- Редактор новой статьи -->
+      <section class="editor card collapsible" id="articleEditor">
+        <div class="collapsible-head">
+          <h2>Новая статья</h2>
+          <button class="btn ghost" data-collapse="#articleEditor" aria-expanded="true" type="button">Свернуть</button>
         </div>
-    </aside>
+        <div class="collapsible-body">
+          <form id="articleForm" class="editor-row">
+            <div class="field">
+              <label>Заголовок</label>
+              <input type="text" name="title" placeholder="Например, История Америса" required>
+            </div>
+            <div class="field">
+              <label>Краткое описание (для списка)</label>
+              <input type="text" name="excerpt" placeholder="1–2 предложения, чтобы зацепить читателя">
+            </div>
+            <div class="field">
+              <label>Содержимое статьи</label>
+              <textarea name="content" placeholder="Поддерживаются абзацы и базовая разметка" required></textarea>
+            </div>
+            <div class="field two">
+              <label>Обложка (опционально)</label>
+              <input type="file" name="cover" accept="image/*">
+            </div>
+            <div class="field two">
+              <label>Галерея (несколько изображений, опционально)</label>
+              <input type="file" name="gallery" accept="image/*" multiple>
+            </div>
+            <div class="field two">
+              <label>Папка</label>
+              <select name="folder_id" id="articleFolderSelect">
+                <option value="">Без папки</option>
+              </select>
+            </div>
+            <div class="field">
+              <div id="galleryPreview" class="gallery-uploader"></div>
+            </div>
+            <div class="field">
+              <button class="btn primary" type="submit">Опубликовать статью</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Список статей -->
+      <section class="articles" id="articlesList"></section>
+
+      <!-- Просмотр одной статьи -->
+      <section class="article-view card" id="articleView" style="display:none;">
+        <img id="viewCover" class="article-cover" alt="" style="display:none;">
+        <div class="article-body">
+          <h2 id="viewTitle" class="article-title"></h2>
+          <div id="viewMeta" class="article-meta"></div>
+          <div id="viewContent" class="article-content"></div>
+          <div id="viewGallery" class="article-gallery"></div>
+
+          <div class="comments">
+            <h3 style="margin:16px 0 10px;">Комментарии</h3>
+            <div id="commentList" class="roll-history" data-topic-id=""></div>
+            <form id="commentForm" class="comment-form grid" style="margin-top:10px;">
+              <div class="field">
+                <label>Комментарий</label>
+                <textarea name="content" required placeholder="Оставьте своё мнение"></textarea>
+              </div>
+              <div class="field">
+                <button class="btn" type="submit">Отправить</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="article-actions" style="margin-top:12px;">
+            <button class="btn" id="backToList" type="button">← Назад к статьям</button>
+            <button class="btn danger" id="deleteArticleBtn" title="Удалить статью навсегда" type="button">Удалить статью</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- Иллюстрации -->
+    <section id="tab-images" class="tab-panel" role="tabpanel">
+      <div class="tab-cards">
+        <section class="folders card" id="mediaFolders">
+          <h2>Папки</h2>
+          <div id="mediaFoldersList" class="grid"></div>
+          <form id="mediaFolderForm" class="grid" style="margin-top:10px;">
+            <div class="field two">
+              <input type="text" name="title" placeholder="Новая папка" required>
+            </div>
+            <div class="field">
+              <button class="btn" type="button" id="createMediaFolderBtn">Создать папку</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card collapsible" id="mediaUploader" style="grid-column: span 12;">
+          <div class="collapsible-head">
+            <h2>Медиа: загрузка</h2>
+            <button class="btn ghost" data-collapse="#mediaUploader" aria-expanded="true" type="button">Свернуть</button>
+          </div>
+          <div class="collapsible-body">
+            <form id="mediaForm" class="grid">
+              <div class="field three">
+                <label>Тип</label>
+                <select name="kind" required>
+                  <option value="image">Картинка</option>
+                  <option value="audio">Аудио</option>
+                  <option value="video">Видео</option>
+                </select>
+              </div>
+              <div class="field three">
+                <label>Название</label>
+                <input type="text" name="title" placeholder="Название">
+              </div>
+              <div class="field three">
+                <label>Описание</label>
+                <input type="text" name="description" placeholder="Короткое описание">
+              </div>
+              <div class="field three">
+                <label>Файл</label>
+                <input type="file" name="file" required accept="image/*,audio/*,video/*">
+              </div>
+              <div class="field three">
+                <label>Папка</label>
+                <select name="folder_id" id="mediaFolderSelect">
+                  <option value="">Без папки</option>
+                </select>
+              </div>
+              <div class="field">
+                <button class="btn primary" type="submit">Загрузить</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="card" style="grid-column: span 12;">
+          <h2>Медиа: последние</h2>
+          <div id="mediaList" class="grid"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- Видео -->
+    <section id="tab-video" class="tab-panel" role="tabpanel">
+      <div class="tab-cards">
+        <section class="card" style="grid-column: span 12%;">
+          <h2>Видео</h2>
+          <div class="grid">
+            <div class="field two">
+              <label>Трейлер сессии</label>
+              <div class="pill">
+                <video controls style="width:100%; border-radius:12px; background:#000;">
+                  <source src="{% static 'media/sample.mp4' %}" type="video/mp4">
+                </video>
+              </div>
+            </div>
+            <div class="field two">
+              <label>Клипы</label>
+              <p class="muted">Добавьте лучшие моменты или записи стримов.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- Музыка -->
+    <section id="tab-music" class="tab-panel" role="tabpanel">
+      <div class="tab-cards">
+        <section class="card" style="grid-column: span 12;">
+          <h2>Музыка</h2>
+          <div class="grid">
+            <div class="field two">
+              <label>Тема кампании</label>
+              <audio controls style="width:100%;">
+                <source src="{% static 'media/theme.mp3' %}" type="audio/mpeg">
+              </audio>
+            </div>
+            <div class="field two">
+              <label>Плейлист сессии</label>
+              <p class="muted">Соберите подборку треков для битв, путешествий и отдыха у костра.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+      <div class="dice-panel">
+        <h3>Разделы</h3>
+        <div class="roll-history section-links">
+          <a class="topnav-link" href="#lore">Лор</a>
+          <a class="topnav-link" href="#images">Иллюстрации</a>
+          <a class="topnav-link" href="#video">Видео</a>
+          <a class="topnav-link" href="#music">Музыка</a>
+        </div>
+      </div>
+    </div>
+  </aside>
 </div>
 
-<!-- Внешний модуль JS -->
 <script type="module" src="{% static 'js/art.js' %}"></script>
 </body>
 </html>
