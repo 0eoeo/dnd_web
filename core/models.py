@@ -49,6 +49,7 @@ class CharacterSheet(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
+    avatar = models.ImageField(upload_to="sheets/avatars/", null=True, blank=True)
 
     class Meta:
         ordering = ["-updated_at", "-created_at"]
@@ -138,11 +139,12 @@ class LoreArticle(models.Model):
 
 
 class LoreArticleImage(models.Model):
-    article = models.ForeignKey(LoreArticle, on_delete=models.CASCADE, related_name="images")
-    image = models.ImageField(upload_to=upload_gallery_path)
-
-    def __str__(self):
-        return f"Image for article {self.article_id}"
+    article = models.ForeignKey(
+        LoreArticle,
+        related_name='images',   # ВАЖНО
+        on_delete=models.CASCADE
+    )
+    image = models.ImageField(upload_to='articles/')
 
 
 class LoreArticleComment(models.Model):

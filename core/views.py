@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
@@ -11,7 +13,7 @@ from django.db import transaction
 from .extract_pdf_form_fields import extract_form_fields
 from .models import (
     CharacterSheet, Roll, LoreFolder, MediaFolder,
-    LoreArticle, LoreArticleComment, MediaAsset, SpellCache, CharacterSheetRevision
+    LoreArticle, LoreArticleComment, MediaAsset, SpellCache, CharacterSheetRevision, LoreArticleImage
 )
 from .serializers import (
     CharacterSheetSerializer, RollSerializer,
@@ -67,10 +69,15 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.AllowAny]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
+    def _parse_payload_data(self, raw):
+        if isinstance(raw, str):
+            try:
+                return json.loads(raw)
+            except Exception:
+                return {}
+        return raw or {}
+
     def _create_revision(self, sheet: CharacterSheet, *, name: str, data: dict, pdf_file):
-        """
-        Создание новой ревизии для логического листа: version = last + 1.
-        """
         last = (
             CharacterSheetRevision.objects
             .filter(logical_key=sheet.logical_key)
@@ -78,7 +85,6 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
             .first()
         )
         next_version = (last.version + 1) if last else 1
-
         rev = CharacterSheetRevision(
             sheet=sheet,
             logical_key=sheet.logical_key,
@@ -87,60 +93,56 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
             data=data or {},
         )
         if pdf_file:
-            # Сохраняем копию файла в историю, чтобы «снимок» был самодостаточным
             rev.pdf.save(f"{sheet.id}_v{next_version}.pdf", pdf_file, save=False)
         rev.save()
         return rev
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
-        """
-        Два режима:
-        - multipart: pdf(или file) + name → распарсить PDF в data, создать sheet и ревизию v1.
-        - JSON: name?, data? → создать sheet и ревизию v1.
-        """
         pdf = request.FILES.get("pdf") or request.FILES.get("file")
+        avatar = request.FILES.get("avatar")
         name = (request.data.get("name") or "").strip() or "Импортированный лист"
 
-        # Создаём базовую запись
+        # data может быть строкой (multipart) или объектом (JSON)
+        payload_data = self._parse_payload_data(request.data.get("data"))
+
         sheet = CharacterSheet.objects.create(name=name, data={})
 
-        # Сохраняем PDF, если есть, и парсим в data
+        if avatar:
+            sheet.avatar.save(avatar.name, avatar, save=False)
+
         if pdf:
-            sheet.pdf.save(f"{sheet.id}_{pdf.name}", pdf, save=True)
+            sheet.pdf.save(f"{sheet.id}_{pdf.name}", pdf, save=False)
+            sheet.save()
             parsed = extract_form_fields(sheet.pdf.path) or {}
             sheet.data = {"fields": parsed.get("fields", [])}
             sheet.save(update_fields=["data"])
-
-            # В историю писать бинарно PDF — используем исходный загруженный файл (он уже прочитан)
-            # Важно: для ревизии надо заново открыть файл из sheet.pdf (так надёжнее)
             with sheet.pdf.open("rb") as f:
                 self._create_revision(sheet, name=sheet.name, data=sheet.data, pdf_file=f)
         else:
-            # Чистый JSON create
-            payload_data = request.data.get("data") or {}
-            sheet.data = payload_data
-            sheet.save(update_fields=["data"])
+            sheet.data = payload_data or {}
+            sheet.save(update_fields=["data", "avatar"])
             self._create_revision(sheet, name=sheet.name, data=sheet.data, pdf_file=None)
 
         return Response(self.get_serializer(sheet).data, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
-        """
-        PATCH: обновляем «текущую» запись и создаём новую ревизию (version += 1).
-        """
         sheet = self.get_object()
         name = (request.data.get("name") or sheet.name).strip()
-        data = request.data.get("data", sheet.data)
 
-        # Обновляем текущий лист
+        raw_data = request.data.get("data", sheet.data)
+        data = self._parse_payload_data(raw_data)
+
+        avatar = request.FILES.get("avatar")
+        if avatar:
+            sheet.avatar.save(avatar.name, avatar, save=False)
+
         sheet.name = name
-        sheet.data = data
-        sheet.save(update_fields=["name", "data", "updated_at"])
+        sheet.data = data or {}
+        sheet.save(update_fields=["name", "data", "avatar", "updated_at"])
 
-        # В историю — снимок данных (без перезаписи текущего pdf)
-        self._create_revision(sheet, name=name, data=data, pdf_file=None)
+        self._create_revision(sheet, name=name, data=sheet.data, pdf_file=None)
 
         return Response(self.get_serializer(sheet).data, status=status.HTTP_200_OK)
 
@@ -184,27 +186,54 @@ class LoreArticleViewSet(viewsets.ModelViewSet):
     queryset = LoreArticle.objects.all().order_by("-updated_at", "-created_at")
     serializer_class = LoreArticleSerializer
     permission_classes = [permissions.AllowAny]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]  # важно
 
-    @action(detail=True, methods=['get', 'post'])
+    def perform_create(self, serializer):
+        # создаём саму статью
+        article = serializer.save(author=self.request.user if self.request.user.is_authenticated else None)
+
+        # обрабатываем вложения из поля 'gallery'
+        files = self.request.FILES.getlist('gallery')
+        for f in files:
+            LoreArticleImage.objects.create(article=article, image=f)
+
+    def perform_update(self, serializer):
+        article = serializer.save()
+        # добавление новых вложений при редактировании (опционально)
+        files = self.request.FILES.getlist('gallery')
+        for f in files:
+            LoreArticleImage.objects.create(article=article, image=f)
+
+    @action(detail=True, methods=["get", "post"], url_path="comments")
     def comments(self, request, pk=None):
         article = self.get_object()
-        if request.method == 'GET':
-            qs = article.comments.all().order_by("created_at")
-            return Response(LoreArticleCommentSerializer(qs, many=True).data)
 
-        serializer = LoreArticleCommentSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(
-            article=article,
-            author=request.user if request.user.is_authenticated else None
-        )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if request.method.lower() == "get":
+            qs = LoreArticleComment.objects.filter(article=article).order_by("created_at")
+            data = LoreArticleCommentSerializer(qs, many=True).data
+            return Response(data, status=status.HTTP_200_OK)
 
+        # POST — создание комментария
+        content = (request.data.get("content") or "").strip()
+        if not content:
+            return Response({"error": "content is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        author = request.user if request.user.is_authenticated else None
+        comment = LoreArticleComment.objects.create(article=article, author=author, content=content)
+        data = LoreArticleCommentSerializer(comment).data
+        return Response(data, status=status.HTTP_201_CREATED)
 
 class MediaAssetViewSet(viewsets.ModelViewSet):
     queryset = MediaAsset.objects.all().order_by("-uploaded_at")
     serializer_class = MediaAssetSerializer
     permission_classes = [permissions.AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    # Подстрахуемся: не принимаем запрос без файла вовсе
+    def create(self, request, *args, **kwargs):
+        if 'file' not in request.FILES:
+            return Response({'file': 'required'}, status=status.HTTP_400_BAD_REQUEST)
+        return super().create(request, *args, **kwargs)
 
 
 # --- Сервисные эндпоинты для заклинаний ---

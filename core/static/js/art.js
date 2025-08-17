@@ -1,4 +1,8 @@
 /* ===== BOOT ===== */
+const LOG = (...a) => console.log('[ART]', ...a);
+const WARN = (...a) => console.warn('[ART]', ...a);
+const ERR = (...a) => console.error('[ART]', ...a);
+
 console.log('art.js boot');
 if (window.__ART_BOOTED__) {
   console.warn('art.js duplicate load — skipping');
@@ -10,11 +14,22 @@ window.__ART_BOOTED__ = true;
 import { CSRF } from './utils.js';
 import { API } from './config.js';
 
+function pickUrl(x){
+  const candidate =
+    x?.url || x?.image?.url || x?.image || x?.cover?.url || x?.cover ||
+    (typeof x === 'string' ? x : '');
+  return candidate;
+}
+
 function resolveUrl(u){
   if (!u) return '';
-  if (/^https?:\/\//i.test(u)) return u;  // абсолютный
-  if (u.startsWith('/')) return u;        // от корня домена
-  return '/' + String(u).replace(/^\/+/, '');
+  if (/^(https?:)?\/\//i.test(u)) return u; // уже абсолютный
+  try {
+    // корректно собираем относительный путь относительно текущего хоста
+    return new URL(u, window.location.origin).pathname;
+  } catch {
+    return '/' + String(u).replace(/^\/+/, '');
+  }
 }
 
 function q(id){ return document.getElementById(id); }
@@ -283,13 +298,18 @@ function bootContent(){
     items.forEach(it=>{
       const card = document.createElement('article');
       card.className = 'article-card';
-      if (it.cover || it.cover_url){
-        const img = document.createElement('img');
-        img.className = 'article-cover';
-        img.src = resolveUrl(it.cover || it.cover_url);
-        img.alt = it.title || 'cover';
-        card.appendChild(img);
-      }
+      if (it.cover_url){
+          const url = resolveUrl(it.cover_url);
+          LOG('article list cover src', {id: it.id, url});
+          const img = document.createElement('img');
+          img.className = 'article-cover';
+          img.src = url;
+          img.alt = it.title || 'cover';
+          img.onerror = ()=> WARN('article list cover FAIL', {id: it.id, url});
+          card.appendChild(img);
+        }
+
+
       const body = document.createElement('div');
       body.className = 'article-body';
       const h = document.createElement('h3');
@@ -320,10 +340,19 @@ function bootContent(){
       const it = data?.item || data || {};
       currentArticleId = it.id;
 
-      if (it.cover || it.cover_url){
-        viewCover.src = resolveUrl(it.cover || it.cover_url);
-        viewCover.style.display = '';
-      } else { viewCover.style.display = 'none'; }
+      if (it.cover_url) {
+      const url = resolveUrl(it.cover_url);
+      LOG('article cover src', {id: it.id, url});
+      viewCover.src = url;
+      viewCover.style.display = '';
+      // опционально: обработчик ошибок
+      viewCover.onerror = () => {
+        WARN('article cover FAIL', {id: it.id, url});
+        viewCover.style.display = 'none';
+      };
+    } else {
+      viewCover.style.display = 'none';
+    }
       viewTitle.textContent = it.title || 'Без названия';
       const ts = it.created_at || it.ts;
       viewMeta.textContent  = `${it.author||'anon'} • ${new Date(ts||Date.now()).toLocaleString()}`;
@@ -332,12 +361,18 @@ function bootContent(){
         const p = document.createElement('p'); p.textContent = par.trim(); viewContent.appendChild(p);
       });
       viewGallery.innerHTML = '';
-      (it.images||it.gallery||[]).forEach(x=>{
-        const url = resolveUrl(x?.image || x?.url || x);
-        if (!url) return;
-        const img = document.createElement('img'); img.src = url; img.alt='illustration';
-        viewGallery.appendChild(img);
-      });
+        (it.images || []).forEach(x => {
+          const url = resolveUrl(x.url || '');
+          LOG('gallery item src', {articleId: it.id, url, item: x});
+          if (!url) return;
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = 'illustration';
+          img.addEventListener('error', () => WARN('gallery image FAIL', {articleId: it.id, url}));
+          viewGallery.appendChild(img);
+        });
+
+
 
       articlesList.style.display = 'none';
       articleView.style.display = '';
@@ -482,55 +517,76 @@ function bootContent(){
   const mediaList = q('mediaList');
 
   function renderMedia(items){
-    if (!mediaList) return;
-    mediaList.innerHTML = '';
-    items.forEach(it=>{
-      const card = document.createElement('div');
-      card.className = 'card';
+  if (!mediaList) return;
+  mediaList.innerHTML = '';
 
-      const headWrap = document.createElement('div');
-      headWrap.style.display = 'flex';
-      headWrap.style.alignItems = 'center';
-      headWrap.style.justifyContent = 'space-between';
-      const head = document.createElement('h2');
-      head.textContent = it.title || `[${it.kind}]`;
-      const actions = document.createElement('div');
-      actions.style.display = 'flex';
-      actions.style.gap = '8px';
+  items.forEach(it=>{
+    const card = document.createElement('div');
+    card.className = 'card';
 
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn danger';
-      delBtn.textContent = 'Удалить';
-      delBtn.title = 'Удалить медиа';
-      delBtn.addEventListener('click', ()=> deleteMedia(it.id));
+    const headWrap = document.createElement('div');
+    headWrap.style.display = 'flex';
+    headWrap.style.alignItems = 'center';
+    headWrap.style.justifyContent = 'space-between';
 
-      actions.appendChild(delBtn);
-      headWrap.appendChild(head);
-      headWrap.appendChild(actions);
-      card.appendChild(headWrap);
+    const head = document.createElement('h2');
+    head.textContent = it.title || `[${it.kind}]`;
 
-      const p = document.createElement('p');
-      p.className = 'muted';
-      p.textContent = it.description || '';
-      card.appendChild(p);
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
 
-      if (it.kind === 'image'){
-        const img = document.createElement('img');
-        img.src = resolveUrl(it.url || it.image);
-        img.alt = it.title || 'image';
-        card.appendChild(img);
-      } else if (it.kind === 'video'){
-        const v = document.createElement('video');
-        v.controls = true; v.src = resolveUrl(it.url);
-        card.appendChild(v);
-      } else if (it.kind === 'audio'){
-        const a = document.createElement('audio');
-        a.controls = true; a.src = resolveUrl(it.url);
-        card.appendChild(a);
-      }
-      mediaList.appendChild(card);
-    });
-  }
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn danger';
+    delBtn.textContent = 'Удалить';
+    delBtn.title = 'Удалить медиа';
+    delBtn.addEventListener('click', ()=> deleteMedia(it.id));
+
+    actions.appendChild(delBtn);
+    headWrap.appendChild(head);
+    headWrap.appendChild(actions);
+    card.appendChild(headWrap);
+
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = it.description || '';
+    card.appendChild(p);
+
+    // ВНИМАНИЕ: тут один общий if/else if/else if без лишних фигурных скобок между ними
+    if (it.kind === 'image') {
+      const raw = pickUrl(it);
+      const url = resolveUrl(raw);
+      LOG('media image src', {id: it.id, raw, url, item: it});
+
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = it.title || 'image';
+
+      // ширина на всю доступную область
+      img.style.width = '-webkit-fill-available';
+      // фолбэк и аккуратные пропорции
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+
+      img.addEventListener('error', ()=> WARN('media image load FAIL', {id: it.id, url}));
+      img.addEventListener('load',  ()=> LOG('media image load OK',   {id: it.id, naturalWidth: img.naturalWidth, url}));
+      card.appendChild(img);
+    } else if (it.kind === 'video'){
+      const v = document.createElement('video');
+      v.controls = true;
+      v.src = resolveUrl(it.url);
+      card.appendChild(v);
+    } else if (it.kind === 'audio'){
+      const a = document.createElement('audio');
+      a.controls = true;
+      a.src = resolveUrl(it.url);
+      card.appendChild(a);
+    }
+
+    mediaList.appendChild(card);
+  });
+}
 
   async function deleteMedia(id){
     const ok = confirm('Удалить медиа безвозвратно?');
@@ -675,20 +731,30 @@ function bootContent(){
   });
 
   async function loadMedia(kind=''){
-    try{
-      let url = API.media;
-      const q = [];
-      if(kind) q.push(`kind=${encodeURIComponent(kind)}`);
-      if(currentMediaFolderId) q.push(`folder_id=${encodeURIComponent(currentMediaFolderId)}`);
-      if(q.length) url += '?' + q.join('&');
+  try{
+    let url = API.media;
+    const q = [];
+    if(kind) q.push(`kind=${encodeURIComponent(kind)}`);
+    if(currentMediaFolderId) q.push(`folder_id=${encodeURIComponent(currentMediaFolderId)}`);
+    if(q.length) url += '?' + q.join('&');
 
-      const res = await fetch(url, { credentials:'same-origin' });
-      if (!res.ok) return;
-      const data = await res.json();
-      const items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
-      renderMedia(items);
-    }catch(e){ console.warn('loadMedia error', e); }
-  }
+    LOG('loadMedia →', url);
+    const res = await fetch(url, { credentials:'same-origin' });
+    LOG('loadMedia status', res.status);
+    const data = await res.json().catch(()=> (WARN('loadMedia json FAIL'), null));
+    LOG('loadMedia data', data);
+    if (!res.ok || !data) return;
+
+     const items =
+   Array.isArray(data) ? data
+   : Array.isArray(data.results) ? data.results
+   : Array.isArray(data.items) ? data.items
+   : [];
+    LOG('loadMedia items count', items.length);
+    renderMedia(items);
+  }catch(e){ ERR('loadMedia error', e); }
+}
+
 
   // Стартовые загрузки
   (async ()=>{
@@ -720,6 +786,7 @@ function bootContent(){
   })();
 
   // Collapse
+    // Collapse
   document.addEventListener('click', (e)=>{
     const btn = e.target.closest('[data-collapse]');
     if(!btn) return;

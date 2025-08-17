@@ -303,7 +303,7 @@ function renderGroupSection(group) {
   section.id = `sec-${group.id}`;
   section.setAttribute('data-title', group.title);
   section.appendChild(el('h2', {}, group.title));
-  const grid = el('div', { class: 'grid' });
+  const grid = el('div', { class: 'inline' });
   section.appendChild(grid);
   return { section, grid };
 }
